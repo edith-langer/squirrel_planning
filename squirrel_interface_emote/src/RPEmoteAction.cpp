@@ -24,7 +24,7 @@ namespace KCL_rosplan {
 		
 		dispatch_sub_ = nh.subscribe("/kcl_rosplan/action_dispatch", 1000, &KCL_rosplan::RPEmoteAction::dispatchCallback, this);
 		
-		sound_pub_ = nh.advertise<std_msgs::String>("/robotsound", 1, true);
+		sound_pub_ = nh.advertise<std_msgs::String>("/expression", 1, true);
 		wiggle_pub_ = nh.advertise<std_msgs::String>("/motion_expression", 1, true);
 	}
 	
@@ -64,6 +64,7 @@ namespace KCL_rosplan {
 		// Start emiting the sounds.
 		std_msgs::String sound_command;
 		sound_command.data = sound.substr(std::string("sound_").size());
+		std::transform(sound_command.data.begin(), sound_command.data.end(), sound_command.data.begin(), ::toupper);
 		sound_pub_.publish(sound_command);
 	
 		for (unsigned int i = 0; i < 10; ++i)

@@ -79,15 +79,13 @@ namespace KCL_rosplan {
 		 */
 		bool createDomain(const std::string& action_name);
 		
-		/**
-		 * In the case that we are running a simulation we setup the knowledge base.
-		 */
-		void setupSimulation();
-		
 		bool initial_problem_generated;
 		
-		// Determine whether this is a simulation or not.
-		bool simulated;
+		// When true, the exploration stops when enough 'lumps' have been found.
+		bool stop_when_enough_lumps_found;
+		
+		// For this experiment we know the number of toys we need to find.
+		unsigned int number_of_toys;
 
 	public:
 

@@ -1,13 +1,13 @@
 ff: found legal plan as follows
 
 step    0: ramificate
-     1: emote kenny sound_hi wiggle_no
+     1: emote kenny sound_hello wiggle_no
      2: goto_waypoint kenny start_wp idle_wp
      3: assume_kb basis_kb kid_0_kb
      4: ramificate
      5: observe-has_commanded kid_0 gehe l2 l1 kid_0_kb
      6: ramificate
-     7: emote kenny sound_ok wiggle_idle
+     7: emote kenny sound_yeah wiggle_idle
      8: goto_waypoint kenny idle_wp pickup_wp
      9: observe-classifiable_from pickup_wp object_wp object0 l3 l2 kid_0_kb
      10: ramificate
@@ -18,7 +18,7 @@ step    0: ramificate
      15: observe-holding kenny object0 l5 l4 kid_0_kb
      16: ramificate
      17: goto_waypoint kenny pickup_wp idle_wp
-     18: drop_object kenny drop_wp idle_wp object0
+     18: putdown_object kenny drop_wp idle_wp object0
      19: pop l5 l4
      20: ramificate
      21: push_object kenny object0 dinosaur object_wp drop_wp pickup_wp
@@ -29,7 +29,7 @@ step    0: ramificate
      26: goto_waypoint kenny pickup_wp idle_wp
      27: jump 5
      28: ramificate
-     29: emote kenny sound_hi wiggle_error
+     29: emote kenny sound_hello wiggle_error
      30: goto_waypoint kenny pickup_wp idle_wp
      31: jump 5
      32: ramificate

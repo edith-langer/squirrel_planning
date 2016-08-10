@@ -27,7 +27,7 @@ namespace KCL_rosplan {
 	/*-------------*/
 
 	RPSquirrelRecursion::RPSquirrelRecursion(ros::NodeHandle &nh)
-		: node_handle(&nh), message_store(nh), initial_problem_generated(false), simulated(false)
+		: node_handle(&nh), message_store(nh), initial_problem_generated(false), stop_when_enough_lumps_found(false), number_of_toys(0)
 	{
 		// knowledge interface
 		update_knowledge_client = nh.serviceClient<rosplan_knowledge_msgs::KnowledgeUpdateService>("/kcl_rosplan/update_knowledge_base");
@@ -45,213 +45,13 @@ namespace KCL_rosplan {
 		
 		pddl_generation_service = nh.advertiseService("/kcl_rosplan/generate_planning_problem", &KCL_rosplan::RPSquirrelRecursion::generatePDDLProblemFile, this);
 
-		nh.getParam("/squirrel_planning_execution/simulated", simulated);
+		nh.getParam("/squirrel_planning_execution/stop_when_enough_lumps_found", stop_when_enough_lumps_found);
 		
-		
-		if (!simulated)
-		{
-			std::string occupancyTopic("/map");
-			nh.param("occupancy_topic", occupancyTopic, occupancyTopic);
-			view_cone_generator = new ViewConeGenerator(nh, occupancyTopic);
-		}
-		else
-		{
-			setupSimulation();
-		}
-		/*
-		geometry_msgs::PoseStamped pose;
-		pose.header.frame_id = "map";
-		pose.pose.position.x = 1;
-		pose.pose.position.y = 2;
-		pose.pose.position.z = 0.0;
-		pose.pose.orientation.x = 0.0;
-		pose.pose.orientation.y = 0.0;
-		pose.pose.orientation.z = 0.0;
-		pose.pose.orientation.w = 1.0;
-		std::string id(message_store.insertNamed("teddybeer", pose));
-		//ros::spinOnce();
-		
-		generateInitialState();
-		*/
-		// { "_id" : ObjectId("56a64dab82b5af8506124f35"), "header" : { "stamp" : { "secs" : 0, "nsecs" : 0 }, "frame_id" : "map", "seq" : 0 }, "pose" : { "position" : { "y" : 2, "x" : 1, "z" : 0 }, "orientation" : { "y" : 0, "x" : 0, "z" : 0, "w" : 1 } }, "_meta" : { "stored_type" : "geometry_msgs/PoseStamped", "inserted_by" : "/rosplan_interface_mapping", "stored_class" : "geometry_msgs.msg._PoseStamped.PoseStamped", "name" : "teddybeer", "inserted_at" : ISODate("1970-01-01T00:00:30.476Z") } }
-		// { "_id" : ObjectId("56a64f691d41c83466e349f1"), "header" : { "stamp" : { "secs" : 0, "nsecs" : 0 }, "frame_id" : "map", "seq" : 0 }, "pose" : { "position" : { "y" : 2, "x" : 1, "z" : 0 }, "orientation" : { "y" : 0, "x" : 0, "z" : 0, "w" : 1 } }, "_meta" : { "stored_type" : "geometry_msgs/PoseStamped", "inserted_by" : "/squirrel_interface_recursion", "stored_class" : "geometry_msgs.msg._PoseStamped.PoseStamped", "name" : "teddybeer", "inserted_at" : ISODate("2016-01-25T16:38:01.392Z") } }
+		std::string occupancyTopic("/map");
+		nh.param("occupancy_topic", occupancyTopic, occupancyTopic);
+		view_cone_generator = new ViewConeGenerator(nh, occupancyTopic);
 	}
 	
-	void RPSquirrelRecursion::setupSimulation()
-	{
-		// We will make some fictional objects and associated waypoints.
-		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
-		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
-		
-		// Create some types for the toys.
-		std::vector<std::string> toy_types;
-		toy_types.push_back("horse");
-		toy_types.push_back("car");
-		toy_types.push_back("unknown");
-		
-		for (std::vector<std::string>::const_iterator ci = toy_types.begin(); ci != toy_types.end(); ++ci)
-		{
-			const std::string& type_predicate = *ci;
-			rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
-			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
-			knowledge_item.instance_type = "type";
-			knowledge_item.instance_name = type_predicate;
-			
-			knowledge_update_service.request.knowledge = knowledge_item;
-			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the type %s to the knowledge base.", type_predicate.c_str());
-				exit(-1);
-			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Added %s to the knowledge base.", type_predicate.c_str());
-			
-			// Create a box for each type.
-			knowledge_item.instance_type = "box";
-			std::stringstream ss;
-			ss << *ci << "_box";
-			std::string box_name = ss.str();
-			knowledge_item.instance_name = box_name;
-			
-			knowledge_update_service.request.knowledge = knowledge_item;
-			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the box %s to the knowledge base.", box_name.c_str());
-				exit(-1);
-			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Added %s to the knowledge base.", box_name.c_str());
-			
-			// Add the box constraints.
-			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-			knowledge_item.attribute_name = "can_fit_inside";
-			knowledge_item.is_negative = false;
-			
-			diagnostic_msgs::KeyValue kv;
-			kv.key = "t";
-			kv.value = type_predicate;
-			knowledge_item.values.push_back(kv);
-			
-			kv.key = "b";
-			kv.value = box_name;
-			knowledge_item.values.push_back(kv);
-			
-			knowledge_update_service.request.knowledge = knowledge_item;
-			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (cat_fit_inside %s %s) to the knowledge base.", type_predicate.c_str(), box_name.c_str());
-				exit(-1);
-			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Added the fact (cat_fit_inside %s %s) to the knowledge base.", type_predicate.c_str(), box_name.c_str());
-			
-			// Place the boxes at their own waypoints.
-			knowledge_item.values.clear();
-			
-			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
-			knowledge_item.instance_type = "waypoint";
-			ss << "_waypoint";
-			knowledge_item.instance_name = ss.str();
-			
-			knowledge_update_service.request.knowledge = knowledge_item;
-			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the waypoint %s to the knowledge base.", ss.str().c_str());
-				exit(-1);
-			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Added %s to the knowledge base.", ss.str().c_str());
-			
-			// Link the boxes to these waypoints.
-			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-			knowledge_item.attribute_name = "box_at";
-			knowledge_item.is_negative = false;
-			
-			kv.key = "b";
-			kv.value = box_name;
-			knowledge_item.values.push_back(kv);
-			
-			kv.key = "wp";
-			kv.value = ss.str();
-			knowledge_item.values.push_back(kv);
-			
-			knowledge_update_service.request.knowledge = knowledge_item;
-			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (box_at %s %s) to the knowledge base.", box_name.c_str(), ss.str().c_str());
-				exit(-1);
-			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Added the fact (box_at %s %s) to the knowledge base.", box_name.c_str(), ss.str().c_str());
-			knowledge_item.values.clear();
-			
-			// Make sure the robots can pickup all types.
-			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-			knowledge_item.attribute_name = "can_pickup";
-			knowledge_item.is_negative = false;
-			
-			kv.key = "v";
-			kv.value = "kenny";
-			knowledge_item.values.push_back(kv);
-			
-			kv.key = "t";
-			kv.value = type_predicate;
-			knowledge_item.values.push_back(kv);
-			
-			knowledge_update_service.request.knowledge = knowledge_item;
-			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (can_pickup %s %s) to the knowledge base.", "kenny", type_predicate.c_str());
-				exit(-1);
-			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Added the fact (can_pickup %s %s) to the knowledge base.", "kenny", type_predicate.c_str());
-			knowledge_item.values.clear();
-		}
-		/*
-		for (unsigned int i = 0; i < 2; ++i)
-		{
-			std::stringstream ss;
-			ss << "object" << i;
-			std::string object_name = ss.str();
-			
-			ss.str(std::string());
-			ss << "waypoint_object" << i;
-			std::string waypoint_name = ss.str();
-			
-			rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
-			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
-			knowledge_item.instance_type = "object";
-			knowledge_item.instance_name = object_name;
-			
-			knowledge_update_service.request.knowledge = knowledge_item;
-			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the object %s to the knowledge base.", object_name.c_str());
-				exit(-1);
-			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Added %s to the knowledge base.", object_name.c_str());
-			
-			knowledge_item.instance_type = "waypoint";
-			knowledge_item.instance_name = waypoint_name;
-			
-			knowledge_update_service.request.knowledge = knowledge_item;
-			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the waypoint %s to the knowledge base.", waypoint_name.c_str());
-				exit(-1);
-			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Added %s to the knowledge base.", waypoint_name.c_str());
-			
-			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-			knowledge_item.attribute_name = "object_at";
-			knowledge_item.is_negative = false;
-			
-			diagnostic_msgs::KeyValue kv;
-			kv.key = "o";
-			kv.value = object_name;
-			knowledge_item.values.push_back(kv);
-			
-			kv.key = "wp";
-			kv.value = waypoint_name;
-			knowledge_item.values.push_back(kv);
-			
-			knowledge_update_service.request.knowledge = knowledge_item;
-			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the new object_at predicate to the knowledge base.");
-				exit(-1);
-			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Added the new object_at predicate to the knowledge base.");
-		}
-		*/
-	}
-
 	/*---------------------------*/
 	/* strategic action callback */
 	/*---------------------------*/
@@ -297,7 +97,7 @@ namespace KCL_rosplan {
 		std::string problem_name = ss.str();
 		
 		ss.str(std::string());
-		ss << "timeout 180 " << planner_path << "ff -o DOMAIN -f PROBLEM";
+		ss << "timeout 10 " << planner_path << "ff -o DOMAIN -f PROBLEM";
 		std::string planner_command = ss.str();
 		
 		// Before calling the planner we create the domain so it can be parsed.
@@ -320,6 +120,83 @@ namespace KCL_rosplan {
 		while (ros::ok() && (planner_instance.getState() == actionlib::SimpleClientGoalState::ACTIVE || planner_instance.getState() == actionlib::SimpleClientGoalState::PENDING)) {
 			ros::spinOnce();
 			loop_rate.sleep();
+			
+			// Check if we have found enough objects.
+			if (stop_when_enough_lumps_found && action_name == "explore_area")
+			{
+				// Count the number of objects we have found.
+				rosplan_knowledge_msgs::GetInstanceService get_instances_msg;
+				get_instances_msg.request.type_name = "object";
+				if (!get_instance_client.call(get_instances_msg))
+				{
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not request instances of type %s from the knowledge base.", get_instances_msg.request.type_name.c_str());
+					exit(-1);
+				}
+				
+				// If we have found enough objects, we skip to the examination phase.
+				if (get_instances_msg.response.instances.size() == number_of_toys)
+				{
+					ROS_INFO("KCL: (RPSquirrelRecursion) We have enough objects in the domain.");
+					planner_instance.stopPlanner();
+					break;
+				}
+			}
+			
+			// Check if we have classified enough objects.
+			rosplan_knowledge_msgs::GetInstanceService get_instances_msg;
+			get_instances_msg.request.type_name = "object";
+			if (!get_instance_client.call(get_instances_msg))
+			{
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not request instances of type %s from the knowledge base.", get_instances_msg.request.type_name.c_str());
+				exit(-1);
+			}
+			
+			// Objects that are classified have a type that is not 'unknown'.
+			unsigned int classified_objects = 0;
+			
+			// Find if this object has been classified at any location.
+			for (std::vector<std::string>::const_iterator ci = get_instances_msg.response.instances.begin(); ci != get_instances_msg.response.instances.end(); ++ci)
+			{
+				const std::string& object = *ci;
+				
+				rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
+				knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+				knowledge_item.attribute_name = "is_of_type";
+				
+				diagnostic_msgs::KeyValue kv;
+				kv.key = "t";
+				kv.value = "unknown";
+				knowledge_item.values.push_back(kv);
+				
+				kv.key = "o";
+				kv.value = object;
+				knowledge_item.values.push_back(kv);
+				knowledge_item.is_negative = false;
+				
+				// Query the knowledge base.
+				rosplan_knowledge_msgs::KnowledgeQueryService knowledge_query;
+				knowledge_query.request.knowledge.push_back(knowledge_item);
+				
+				// Check if any of these facts are true.
+				if (!query_knowledge_client.call(knowledge_query))
+				{
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not call the query knowledge server.");
+					exit(1);
+				}
+				
+				if (knowledge_query.response.all_true)
+				{
+					++classified_objects;
+					ROS_INFO("KCL: (RPSquirrelRecursion) The object: %s has been classified.", object.c_str());
+				}
+			}
+			
+			// Check if we are done.
+			if (classified_objects == number_of_toys)
+			{
+				ROS_INFO("KCL: (RPSquirrelRecursion) All objects are classified.");
+				exit(0);
+			}
 		}
 
 		actionlib::SimpleClientGoalState state = planner_instance.getState();
@@ -642,26 +519,16 @@ namespace KCL_rosplan {
 			std::vector<std_msgs::ColorRGBA> triangle_colours;
 
 			std::vector<geometry_msgs::Pose> view_poses;
-			if (!simulated)
-			{
-				std::vector<tf::Vector3> bounding_box;
-				tf::Vector3 p1(3.22, 4.36, 0.00);
-				tf::Vector3 p2(-0.5, 4.07, 0.00);
-				tf::Vector3 p3(3.49, 0.01, 0.00);
-				tf::Vector3 p4(-0.35, -0.09, 0.00);
-				bounding_box.push_back(p1);
-				bounding_box.push_back(p3);
-				bounding_box.push_back(p4);
-				bounding_box.push_back(p2);
-				view_cone_generator->createViewCones(view_poses, bounding_box, 3, 5, 30.0f, 2.0f, 100, 0.35f);
-			}
-			else
-			{
-				view_poses.push_back(geometry_msgs::Pose());
-				view_poses.push_back(geometry_msgs::Pose());
-				view_poses.push_back(geometry_msgs::Pose());
-				view_poses.push_back(geometry_msgs::Pose());
-			}
+			std::vector<tf::Vector3> bounding_box;
+			tf::Vector3 p1(-2.0, -9.75, 0.00);
+			tf::Vector3 p2(-2.0, 1.62, 0.00);
+			tf::Vector3 p3(6.0, 1.62, 0.00);
+			tf::Vector3 p4(6.0, -9.75, 0.00);
+			bounding_box.push_back(p1);
+			bounding_box.push_back(p3);
+			bounding_box.push_back(p4);
+			bounding_box.push_back(p2);
+			view_cone_generator->createViewCones(view_poses, bounding_box, 10, 5, 30.0f, 2.0f, 10, 0.35f);
 			
 			// Add these poses to the knowledge base.
 			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;
@@ -952,43 +819,33 @@ namespace KCL_rosplan {
 			ROS_INFO("KCL: (RPSquirrelRecursion) Object location is: %s", object_location.c_str());
 			
 			squirrel_waypoint_msgs::ExamineWaypoint getTaskPose;
-			if (!simulated)
-			{
-				// fetch position of object from message store
-				std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > results;
-				if(message_store.queryNamed<squirrel_object_perception_msgs::SceneObject>(object_name, results)) {
 
-					if(results.size()<1) {
-						ROS_ERROR("KCL: (RPSquirrelRoadmap) aborting waypoint request; no matching obID %s", object_name.c_str());
-						return false;
-					}
-				} else {
-					ROS_ERROR("KCL: (RPSquirrelRoadmap) could not query message store to fetch object pose");
+			// fetch position of object from message store
+			std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > results;
+			if(message_store.queryNamed<squirrel_object_perception_msgs::SceneObject>(object_name, results)) {
+
+				if(results.size()<1) {
+					ROS_ERROR("KCL: (RPSquirrelRoadmap) aborting waypoint request; no matching obID %s", object_name.c_str());
 					return false;
 				}
-
-				// request classification waypoints for object
-				squirrel_object_perception_msgs::SceneObject &obj = *results[0];
-				
-				getTaskPose.request.object_pose.header = obj.header;
-				getTaskPose.request.object_pose.pose = obj.pose;
-				if (!classify_object_waypoint_client.call(getTaskPose)) {
-					ROS_ERROR("KCL: (RPSquirrelRoadmap) Failed to recieve classification waypoints for %s.", object_name.c_str());
-					return false;
-				}
-
-				std_msgs::Int8 debug_pose_number;
-				debug_pose_number.data = getTaskPose.response.poses.size();
-				ROS_INFO("KCL: (RPSquirrelRecursion) Found %d observation poses", debug_pose_number.data);
+			} else {
+				ROS_ERROR("KCL: (RPSquirrelRoadmap) could not query message store to fetch object pose");
+				return false;
 			}
-			else
-			{
-				for (unsigned int i = 0; i < 4; ++i)
-				{
-					geometry_msgs::PoseWithCovarianceStamped pwcs;
-					getTaskPose.response.poses.push_back(pwcs);
-				}
+
+			// request classification waypoints for object
+			squirrel_object_perception_msgs::SceneObject &obj = *results[0];
+			
+			getTaskPose.request.object_pose.header = obj.header;
+			getTaskPose.request.object_pose.pose = obj.pose;
+			if (!classify_object_waypoint_client.call(getTaskPose)) {
+				ROS_ERROR("KCL: (RPSquirrelRoadmap) Failed to recieve classification waypoints for %s.", object_name.c_str());
+				return false;
 			}
+
+			std_msgs::Int8 debug_pose_number;
+			debug_pose_number.data = getTaskPose.response.poses.size();
+			ROS_INFO("KCL: (RPSquirrelRecursion) Found %d observation poses", debug_pose_number.data);
 
 			// Add all the waypoints to the knowledge base.
 			std::stringstream ss;
@@ -1077,46 +934,43 @@ namespace KCL_rosplan {
 				std::stringstream ss;
 				ss << "near_" << box_location_predicate;
 				
-				if (!simulated)
+				if(message_store.queryNamed<geometry_msgs::PoseStamped>(box_location_predicate, results))
 				{
-					if(message_store.queryNamed<geometry_msgs::PoseStamped>(box_location_predicate, results))
+					if (results.size() < 1)
 					{
-						if (results.size() < 1)
-						{
-							ROS_ERROR("KCL: (RPSquirrelRecursion) aborting waypoint request; no matching wpID %s", box_location_predicate.c_str());
-							exit(-1);
-						}
-					} else {
-						ROS_ERROR("KCL: (RPSquirrelRecursion) could not query message store to fetch waypoint pose");
+						ROS_ERROR("KCL: (RPSquirrelRecursion) aborting waypoint request; no matching wpID %s", box_location_predicate.c_str());
 						exit(-1);
 					}
-					const geometry_msgs::PoseStamped &box_wp = *results[0];
-					box_to_pose_mapping[box_predicate] = box_wp.pose;
-					
-					// Create a waypoint 44 cm from this box at a random angle.
-					float angle = ((float)rand() / (float)RAND_MAX) * 360.0f;
-					tf::Vector3 v(0.44f, 0.0f, 0.0f);
-					v.rotate(tf::Vector3(0, 0, 1), angle);
-					v += tf::Vector3(box_wp.pose.position.x, box_wp.pose.position.y, 0.0f);
-					
-					tf::Quaternion v_rotation(tf::Vector3(0, 0, 1), angle + 180.0f);
-					
-					// Store this location in the knowledge base.
-					geometry_msgs::PoseStamped near_pose;
-					near_pose.header.seq = 0;
-					near_pose.header.stamp = ros::Time::now();
-					near_pose.header.frame_id = "/map";
-					near_pose.pose.position.x = v.x();
-					near_pose.pose.position.y = v.y();
-					near_pose.pose.position.z = 0.0f;
-					
-					near_pose.pose.orientation.x = v_rotation.x();
-					near_pose.pose.orientation.y = v_rotation.y();
-					near_pose.pose.orientation.z = v_rotation.z();
-					near_pose.pose.orientation.w = v_rotation.w();
-					
-					std::string near_waypoint_mongodb_id(message_store.insertNamed(ss.str(), near_pose));
+				} else {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) could not query message store to fetch waypoint pose");
+					exit(-1);
 				}
+				const geometry_msgs::PoseStamped &box_wp = *results[0];
+				box_to_pose_mapping[box_predicate] = box_wp.pose;
+				
+				// Create a waypoint 44 cm from this box at a random angle.
+				float angle = ((float)rand() / (float)RAND_MAX) * 360.0f;
+				tf::Vector3 v(0.44f, 0.0f, 0.0f);
+				v.rotate(tf::Vector3(0, 0, 1), angle);
+				v += tf::Vector3(box_wp.pose.position.x, box_wp.pose.position.y, 0.0f);
+				
+				tf::Quaternion v_rotation(tf::Vector3(0, 0, 1), angle + 180.0f);
+				
+				// Store this location in the knowledge base.
+				geometry_msgs::PoseStamped near_pose;
+				near_pose.header.seq = 0;
+				near_pose.header.stamp = ros::Time::now();
+				near_pose.header.frame_id = "/map";
+				near_pose.pose.position.x = v.x();
+				near_pose.pose.position.y = v.y();
+				near_pose.pose.position.z = 0.0f;
+				
+				near_pose.pose.orientation.x = v_rotation.x();
+				near_pose.pose.orientation.y = v_rotation.y();
+				near_pose.pose.orientation.z = v_rotation.z();
+				near_pose.pose.orientation.w = v_rotation.w();
+				
+				std::string near_waypoint_mongodb_id(message_store.insertNamed(ss.str(), near_pose));
 				
 				box_to_location_mapping[box_predicate] = box_location_predicate;
 				
@@ -1244,25 +1098,22 @@ namespace KCL_rosplan {
 					object_to_location_mapping[object_predicate] = object_location_predicate;
 				}
 				
-				if (!simulated)
+				// Get the actual location of this object.
+				std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > results;
+				if(message_store.queryNamed<squirrel_object_perception_msgs::SceneObject>(object_predicate, results))
 				{
-					// Get the actual location of this object.
-					std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > results;
-					if(message_store.queryNamed<squirrel_object_perception_msgs::SceneObject>(object_predicate, results))
+					if (results.size() < 1)
 					{
-						if (results.size() < 1)
-						{
-							ROS_ERROR("KCL: (RPSquirrelRoadmap) aborting waypoint request; no matching obID %s", object_predicate.c_str());
-							exit(-1);
-						}
-					} else {
-						ROS_ERROR("KCL: (RPSquirrelRoadmap) could not query message store to fetch object pose");
+						ROS_ERROR("KCL: (RPSquirrelRoadmap) aborting waypoint request; no matching obID %s", object_predicate.c_str());
 						exit(-1);
 					}
-					const squirrel_object_perception_msgs::SceneObject &obj = *results[0];
-					const geometry_msgs::Pose& obj_pose = obj.pose;
-					object_to_pose_mapping[object_predicate] = obj_pose;
+				} else {
+					ROS_ERROR("KCL: (RPSquirrelRoadmap) could not query message store to fetch object pose");
+					exit(-1);
 				}
+				const squirrel_object_perception_msgs::SceneObject &obj = *results[0];
+				const geometry_msgs::Pose& obj_pose = obj.pose;
+				object_to_pose_mapping[object_predicate] = obj_pose;
 			}
 			
 			// Filter those objects that are already tidied.
@@ -1342,33 +1193,30 @@ namespace KCL_rosplan {
 					}
 					ROS_INFO("KCL: (RPSquirrelRecursion) Added %s to the knowledge base.", ss.str().c_str());
 					
-					if (!simulated)
-					{
-						// Create a waypoint 43 cm from this box at a random angle.
-						float angle = ((float)rand() / (float)RAND_MAX) * 360.0f;
-						tf::Vector3 v(0.43f, 0.0f, 0.0f);
-						v.rotate(tf::Vector3(0, 0, 1), angle);
-						v += tf::Vector3(obj_pose.position.x, obj_pose.position.y, 0.0f);
-						
-						tf::Quaternion v_rotation(tf::Vector3(0, 0, 1), angle + 180.0f);
-						
-						// Store this location in the knowledge base.
-						geometry_msgs::PoseStamped near_pose;
-						near_pose.header.seq = 0;
-						near_pose.header.stamp = ros::Time::now();
-						near_pose.header.frame_id = "/map";
-						near_pose.pose.position.x = v.x();
-						near_pose.pose.position.y = v.y();
-						near_pose.pose.position.z = 0.0f;
-						
-						near_pose.pose.orientation.x = v_rotation.x();
-						near_pose.pose.orientation.y = v_rotation.y();
-						near_pose.pose.orientation.z = v_rotation.z();
-						near_pose.pose.orientation.w = v_rotation.w();
-						
-						std::string near_waypoint_mongodb_id(message_store.insertNamed(ss.str(), near_pose));
-					}
+					// Create a waypoint 43 cm from this box at a random angle.
+					float angle = ((float)rand() / (float)RAND_MAX) * 360.0f;
+					tf::Vector3 v(0.43f, 0.0f, 0.0f);
+					v.rotate(tf::Vector3(0, 0, 1), angle);
+					v += tf::Vector3(obj_pose.position.x, obj_pose.position.y, 0.0f);
 					
+					tf::Quaternion v_rotation(tf::Vector3(0, 0, 1), angle + 180.0f);
+					
+					// Store this location in the knowledge base.
+					geometry_msgs::PoseStamped near_pose;
+					near_pose.header.seq = 0;
+					near_pose.header.stamp = ros::Time::now();
+					near_pose.header.frame_id = "/map";
+					near_pose.pose.position.x = v.x();
+					near_pose.pose.position.y = v.y();
+					near_pose.pose.position.z = 0.0f;
+					
+					near_pose.pose.orientation.x = v_rotation.x();
+					near_pose.pose.orientation.y = v_rotation.y();
+					near_pose.pose.orientation.z = v_rotation.z();
+					near_pose.pose.orientation.w = v_rotation.w();
+					
+					std::string near_waypoint_mongodb_id(message_store.insertNamed(ss.str(), near_pose));
+				
 					kenny_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
 					kenny_knowledge.attribute_name = "near_for_grasping";
 					kenny_knowledge.is_negative = false;
@@ -1395,38 +1243,36 @@ namespace KCL_rosplan {
 					ss.str(std::string());
 					ss << "near_for_pushing_" << object_predicate;
 					
-					if (!simulated)
-					{
-						const geometry_msgs::Pose& box_pose = type_to_box_pose_mapping[type_predicate];
-						
-						tf::Vector3 object_pose_v3(obj_pose.position.x, obj_pose.position.y, obj_pose.position.z);
-						tf::Vector3 box_pose_v3(box_pose.position.x, box_pose.position.y, box_pose.position.z); 
-						tf::Vector3 behind_robot = object_pose_v3 - box_pose_v3;
-						behind_robot.normalize();
-						behind_robot = object_pose_v3 + behind_robot * 0.4f;
-						
-						// Make the angle such that is faces the object.
-						float angle = behind_robot.angle(object_pose_v3);
-						
-						// Create a waypoint 40 cm 'behind' the robot in relation to the box.
-						tf::Quaternion behind_robot_rotation(tf::Vector3(0, 0, 1), angle);
-						
-						// Store this location in the knowledge base.
-						geometry_msgs::PoseStamped near_pose;
-						near_pose.header.seq = 0;
-						near_pose.header.stamp = ros::Time::now();
-						near_pose.header.frame_id = "/map";
-						near_pose.pose.position.x = behind_robot.x();
-						near_pose.pose.position.y = behind_robot.y();
-						near_pose.pose.position.z = 0.0f;
-						
-						near_pose.pose.orientation.x = behind_robot_rotation.x();
-						near_pose.pose.orientation.y = behind_robot_rotation.y();
-						near_pose.pose.orientation.z = behind_robot_rotation.z();
-						near_pose.pose.orientation.w = behind_robot_rotation.w();
-						
-						std::string behind_robot_waypoint_mongodb_id(message_store.insertNamed(ss.str(), near_pose));
-					}
+					const geometry_msgs::Pose& box_pose = type_to_box_pose_mapping[type_predicate];
+					
+					tf::Vector3 object_pose_v3(obj_pose.position.x, obj_pose.position.y, obj_pose.position.z);
+					tf::Vector3 box_pose_v3(box_pose.position.x, box_pose.position.y, box_pose.position.z); 
+					tf::Vector3 behind_robot = object_pose_v3 - box_pose_v3;
+					behind_robot.normalize();
+					behind_robot = object_pose_v3 + behind_robot * 0.4f;
+					
+					// Make the angle such that is faces the object.
+					angle = behind_robot.angle(object_pose_v3);
+					
+					// Create a waypoint 40 cm 'behind' the robot in relation to the box.
+					tf::Quaternion behind_robot_rotation(tf::Vector3(0, 0, 1), angle);
+					
+					// Store this location in the knowledge base.
+					//geometry_msgs::PoseStamped near_pose;
+					near_pose.header.seq = 0;
+					near_pose.header.stamp = ros::Time::now();
+					near_pose.header.frame_id = "/map";
+					near_pose.pose.position.x = behind_robot.x();
+					near_pose.pose.position.y = behind_robot.y();
+					near_pose.pose.position.z = 0.0f;
+					
+					near_pose.pose.orientation.x = behind_robot_rotation.x();
+					near_pose.pose.orientation.y = behind_robot_rotation.y();
+					near_pose.pose.orientation.z = behind_robot_rotation.z();
+					near_pose.pose.orientation.w = behind_robot_rotation.w();
+					
+					std::string behind_robot_waypoint_mongodb_id(message_store.insertNamed(ss.str(), near_pose));
+				
 					std::vector<std::string> pushing_waypoints;
 					pushing_waypoints.push_back(ss.str());
 					
@@ -1537,8 +1383,8 @@ namespace KCL_rosplan {
 		ROS_INFO("KCL: (RPSquirrelRecursion) Start planning server found");
 		
 		// send goal
-		// plan_action_client.sendGoal(psrv);
-		// ROS_INFO("KCL: (RPSquirrelRecursion) Goal sent");
+		plan_action_client.sendGoal(psrv);
+		ROS_INFO("KCL: (RPSquirrelRecursion) Goal sent");
 
 		/*
 		ros::ServiceClient run_planner_client = nh.serviceClient<rosplan_dispatch_msgs::PlanGoal>("/kcl_rosplan/planning_server");

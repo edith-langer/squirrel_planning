@@ -43,7 +43,7 @@
 		<param name="simulate_goto_waypoint" value="false" />
 		<param name="simulate_explore_waypoint" value="false" />
 		<param name="simulate_clear_object" value="true" />
-		<param name="simulate_classify_object" value="true" />
+		<param name="simulate_classify_object" value="false" />
 		<param name="simulate_put_object_in_box" value="true" />
 		<param name="simulate_pickup_object" value="true" />
 		<param name="simulate_drop_object" value="true" />

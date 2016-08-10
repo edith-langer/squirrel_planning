@@ -14,14 +14,14 @@
 )
 
 (:predicates
-	(robot_at ?r - robot ?wp - waypoint ?s - state)
+	(robot_at ?v - robot ?wp - waypoint ?s - state)
 	(object_at ?o - object ?wp - waypoint ?s - state)
 	(classified ?o - object ?s - state)
 	(classification_failed ?o - object ?s - state)
 	(classifiable_from ?from - waypoint ?view - waypoint ?o - object ?s - state)
 
-	(gripper_empty ?r - robot ?s - state)
-	(holding ?r - robot ?o - object ?s - state)
+	(gripper_empty ?v - robot ?s - state)
+	(holding ?v - robot ?o - object ?s - state)
 	(near ?wp1 ?wp2 - waypoint)
 	(current_turn ?k - kid ?s - state)
 	(has_commanded ?k - kid ?c - command ?s - state)
@@ -53,12 +53,12 @@
 )
 
 (:action pickup_object
-	:parameters (?r - robot ?wp ?near_wp - waypoint ?o - object ?t - type)
+	:parameters (?v - robot ?wp ?near_wp - waypoint ?ob - object ?t - type)
 	:precondition (and
-		(robot_at ?r ?near_wp dummy_state)
-		(object_at ?o ?wp dummy_state)
-		(gripper_empty ?r dummy_state)
-		(is_of_type ?o ?t dummy_state)
+		(robot_at ?v ?near_wp dummy_state)
+		(object_at ?ob ?wp dummy_state)
+		(gripper_empty ?v dummy_state)
+		(is_of_type ?ob ?t dummy_state)
 		(near ?near_wp ?wp)
 	)
 	:effect (and
@@ -66,12 +66,12 @@
 	)
 )
 
-(:action drop_object
-	:parameters (?r - robot ?wp ?near_wp - waypoint ?o - object ?t - type)
+(:action putdown_object
+	:parameters (?v - robot ?wp ?near_wp - waypoint ?o - object ?t - type)
 	:precondition (and
-		(robot_at ?r ?near_wp dummy_state)
+		(robot_at ?v ?near_wp dummy_state)
 		(object_at ?o ?wp dummy_state)
-		(gripper_empty ?r dummy_state)
+		(gripper_empty ?v dummy_state)
 		(is_of_type ?o ?t dummy_state)
 		(near ?near_wp ?wp)
 	)
@@ -81,9 +81,9 @@
 )
 
 (:action push_object
-	:parameters (?r - robot ?ob - object ?t - type ?from ?to ?near_wp - waypoint)
+	:parameters (?v - robot ?ob - object ?t - type ?from ?to ?near_wp - waypoint)
 	:precondition (and
-		(robot_at ?r ?near_wp dummy_state)
+		(robot_at ?v ?near_wp dummy_state)
 		(object_at ?ob ?from dummy_state)
 		(is_of_type ?ob ?t dummy_state)
 		(near ?near_wp ?from)
@@ -94,10 +94,10 @@
 )
 
 (:action goto_waypoint
-	:parameters (?r - robot ?from ?to - waypoint)
+	:parameters (?v - robot ?from ?to - waypoint)
 	:precondition (and
 		(not (resolve-axioms))
-		(robot_at ?r ?from dummy_state)
+		(robot_at ?v ?from dummy_state)
 	)
 	:effect (and
 		
@@ -105,14 +105,14 @@
 )
 
 (:action emote
-	:parameters (?r - robot ?s - sound ?w - wiggle)
+	:parameters (?v - robot ?s - sound ?w - wiggle)
 	:precondition (and )
 	:effect (and )
 )
 
 ;; Attempt to classify the object.
 (:action observe-classifiable_from
-	:parameters (?from ?view - waypoint ?o - object ?r - robot  ?l ?l2 - level ?kb - knowledgebase)
+	:parameters (?from ?view - waypoint ?o - object ?v - robot  ?l ?l2 - level ?kb - knowledgebase)
 	:precondition (and
 		(not (resolve-axioms))
 		(next ?l ?l2)
@@ -120,7 +120,7 @@
 		(current_kb ?kb)
 		(not (current_kb basis_kb))
 
-		(robot_at ?r ?from dummy_state)
+		(robot_at ?v ?from dummy_state)
 	)
 	:effect (and
 		
@@ -128,7 +128,7 @@
 )
 
 (:action observe-holding
-	:parameters (?r - robot ?o - object ?l ?l2 - level ?kb - knowledgebase)
+	:parameters (?v - robot ?o - object ?l ?l2 - level ?kb - knowledgebase)
 	:precondition (and
 		(not (resolve-axioms))
 		(next ?l ?l2)

@@ -42,6 +42,10 @@ public:
 	 */
 	void startPlanner(const std::string& domain_path, const std::string& problem_path, const std::string& data_path, const std::string& planner_command);
 	
+	/**
+	 * Stops the planner. It only sends the command to the planner, it might take longer before the planner has actually stopped.
+	 */
+	void stopPlanner();
 private:
 	
 	/**
@@ -56,6 +60,9 @@ private:
 	
 	// The action client that communicates with the ROS Planner.
 	actionlib::SimpleActionClient<rosplan_dispatch_msgs::PlanAction>* plan_action_client_;
+	
+	// Topic to give commands to the planner (stop, pause, etc).
+	ros::Publisher plan_command_pub_;
 	
 	static unsigned int total_planner_instances_;
 };

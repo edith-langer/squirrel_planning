@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include <squirrel_planning_execution/ViewConeGenerator.h>
 #include <occupancy_grid_utils/ray_tracer.h>
 #include <occupancy_grid_utils/coordinate_conversions.h>
@@ -31,7 +33,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 		return;
 	}
 	
-	ROS_INFO("(ViewConeGenerator) View code generation started.");
+	ROS_INFO("(ViewConeGenerator) View code generation started %d.", max_view_cones);
 	// Initialise the processed cells list.
 	std::vector<bool> processed_cells(last_received_occupancy_grid_msgs_.info.width * last_received_occupancy_grid_msgs_.info.height, false);
 	for (int y = 0; y < last_received_occupancy_grid_msgs_.info.height; ++y) {
@@ -62,6 +64,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 			
 			// Check if this cell point is not too close to any obstacles.
 			if (isBlocked(p, safe_distance)) {
+				std::cout << "#";
 				continue;
 			}
 			
@@ -92,7 +95,11 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 					}
 				}
 				
-				if (!falls_within_bounded_box) continue;
+				if (!falls_within_bounded_box)
+				{
+					std::cout << "b";
+				//	continue;
+				}
 			}
 			float yaw = ((float)rand() / (float)RAND_MAX) * 2 * M_PI;
 			
@@ -242,7 +249,12 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 				
 				//ROS_INFO("(ViewConeGenerator) Best new pose(%f, %f, %f), yaw=%f (actual=%f) with %d cells.", best_pose.position.x, best_pose.position.y, best_pose.position.z, best_yaw, yaw, visible_cells.size());
 			}
+			else {
+				std::cout << "-";
+			}
 		}
+		
+		std::cout << std::endl;
 		
 		if (best_visible_cells.empty()) {
 			ROS_INFO("(ViewConeGenerator) No good poses found!");

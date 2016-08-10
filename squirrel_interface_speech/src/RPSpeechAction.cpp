@@ -16,7 +16,7 @@ namespace KCL_rosplan {
 		get_instance_client_ = nh.serviceClient<rosplan_knowledge_msgs::GetInstanceService>("/kcl_rosplan/get_current_instances");
 		get_attribute_client_ = nh.serviceClient<rosplan_knowledge_msgs::GetAttributeService>("/kcl_rosplan/get_current_knowledge");
 		
-		command_stream_ = nh.subscribe<squirrel_speech_msgs::RecognizedCommand>("/squirel_speech_rec/squirrel_speech_recognized_commands", 1, &RPSpeechAction::processSpeechCommand, this);
+		command_stream_ = nh.subscribe<squirrel_speech_msgs::RecognizedCommand>("/squirrel_speech_rec/squirrel_speech_recognized_commands", 1, &RPSpeechAction::processSpeechCommand, this);
 	}
 	
 	void RPSpeechAction::updateKnowledgeBase(const squirrel_speech_msgs::RecognizedCommand& command, bool add)

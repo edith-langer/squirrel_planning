@@ -1,5 +1,6 @@
 #include "PlannerInstance.h"
 
+#include <std_msgs/String.h>
 
 namespace KCL_rosplan
 {
@@ -40,6 +41,10 @@ PlannerInstance::PlannerInstance(ros::NodeHandle& node_handle, const std::string
 	ROS_INFO("KCL: (PlannerInstance) Waiting for action server to start.");
 	plan_action_client_->waitForServer();
 	ROS_INFO("KCL: (PlannerInstance) Action server started.");
+	
+	std::stringstream ss;
+	ss << "/kcl_rosplan/" << planning_instance_name << "/planning_commands";
+	plan_command_pub_ = node_handle.advertise<std_msgs::String>(ss.str(), 1);
 }
 
 PlannerInstance::~PlannerInstance()
@@ -57,6 +62,13 @@ void PlannerInstance::startPlanner(const std::string& domain_path, const std::st
 	psrv.start_action_id = total_planner_instances_ * 1000;
 	
 	plan_action_client_->sendGoal(psrv);
+}
+
+void PlannerInstance::stopPlanner()
+{
+	std_msgs::String command;
+	command.data = "cancel";
+	plan_command_pub_.publish(command);
 }
 
 actionlib::SimpleClientGoalState PlannerInstance::getState() const
