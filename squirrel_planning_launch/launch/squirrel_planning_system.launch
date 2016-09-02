@@ -1,6 +1,7 @@
+<?xml version="1.0"?>
 <launch>
 
-	<!-- domain file -->
+	<!-- data paths -->
 	<param name="data_path" value="$(find squirrel_planning_launch)/common/" />
 	<param name="planner_path" value="$(find rosplan_planning_system)/common/bin/" />
 
@@ -8,15 +9,13 @@
 	<param name="domain_path" value="$(find squirrel_planning_launch)/common/tidy_room_domain-nt.pddl" />
 
 	<!-- knowledge base -->
-	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen">
-	</node>
+	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen" />
 
 	<!-- scene database (MongoDB) -->
 	<node name="rosplan_scene_database" pkg="mongodb_store" type="mongodb_server.py" respawn="false" output="screen">
 	    <param name="database_path" value="$(find rosplan_knowledge_base)/common/mongoDB" />
 	</node>
-	<node name="rosplan_scene_message_store" pkg="mongodb_store" type="message_store_node.py" respawn="false" output="screen">
-	</node>
+	<node name="rosplan_scene_message_store" pkg="mongodb_store" type="message_store_node.py" respawn="false" output="screen" />
 
 	<!-- planning system -->
 	<node name="rosplan_planning_system" pkg="rosplan_planning_system" type="planner" respawn="false" output="screen">
@@ -27,7 +26,7 @@
 
 		<!-- to run the planner -->
 	    <param name="planner_command" value="timeout 10 $(find rosplan_planning_system)/common/bin/ff -o DOMAIN -f PROBLEM" />
-            <param name="generate_default_problem" value="false" />
+		<param name="generate_default_problem" value="false" />
 	</node>
 
 	<!-- RPSquirrelRecursion actions -->
@@ -40,16 +39,29 @@
 		<param name="action_server" value="/squirrel_look_for_objects" />
 	</node>
 
-	<node name="squirrel_planning_interface_objects" pkg="squirrel_interface_perception" type="rpObjectPerception" output="screen">
+	<node name="squirrel_planning_interface_pushing" pkg="squirrel_interface_manipulation" type="rppushServer" output="screen">
+		<param name="smash_action_server" value="/smash" />
+		<param name="push_action_server" value="/push" />
 	</node>
 
 	<node name="rosplan_interface_movebase" pkg="rosplan_interface_movebase" type="rpmovebase" output="screen">
 		<param name="action_server" value="/move_base" />
 	</node>
 
+    <node name="squirrel_interface_manipulation" pkg="squirrel_interface_manipulation" type="rpgraspServer" respawn="false" output="screen">
+            <param name="blind_grasp_action_server" value="/blindGrasp" />
+    </node>
+
 	<!-- simulation acitons -->
 	<node name="simulated_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen">
 		<param name="query_user" value="false" />
+		<param name="simulate_goto_waypoint" value="false"/>
+		<param name="simulate_explore_waypoint" value="false"/>
+		<param name="simulate_clear_object" value="true"/>
+		<param name="simulate_classify_object" value="false"/>
+		<param name="simulate_put_object_in_box" value="true"/>
+		<param name="simulate_pickup_object" value="false"/>
+		<param name="simulate_drop_object" value="false"/>
 	</node>
 </launch>
 

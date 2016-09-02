@@ -33,7 +33,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 		return;
 	}
 	
-	ROS_INFO("(ViewConeGenerator) View code generation started %d.", max_view_cones);
+	ROS_INFO("(ViewConeGenerator) View code generation started %d. Occupancy grid size: (%d, %d), cell size: %f", max_view_cones, last_received_occupancy_grid_msgs_.info.width, last_received_occupancy_grid_msgs_.info.height, last_received_occupancy_grid_msgs_.info.resolution);
 	// Initialise the processed cells list.
 	std::vector<bool> processed_cells(last_received_occupancy_grid_msgs_.info.width * last_received_occupancy_grid_msgs_.info.height, false);
 	for (int y = 0; y < last_received_occupancy_grid_msgs_.info.height; ++y) {
@@ -50,7 +50,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 	ROS_INFO("(ViewConeGenerator) Initialised the processed cells.");
 	
 	for (unsigned int i = 0; i < max_view_cones; ++i) {
-		//ROS_INFO("(ViewConeGenerator) Process view cone: %d.", i);
+		ROS_INFO("(ViewConeGenerator) Process view cone: %d.", i);
 		// First we generate a bunch of random view cones and rate them.
 		geometry_msgs::Pose best_pose;
 		std::vector<occupancy_grid_utils::Cell> best_visible_cells;
@@ -98,13 +98,13 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 				if (!falls_within_bounded_box)
 				{
 					std::cout << "b";
-				//	continue;
+					continue;
 				}
 			}
 			float yaw = ((float)rand() / (float)RAND_MAX) * 2 * M_PI;
 			
 			//ROS_INFO("(ViewConeGenerator) Sample cone: (%d, %d) %f.", grid_x, grid_y, yaw);
-			//ROS_INFO("(ViewConeGenerator) Sample cone: (%f, %f) %f.", p.x, p.y, yaw);
+			ROS_INFO("(ViewConeGenerator) Sample cone: (%f, %f) %f.", p.x, p.y, yaw);
 			
 			geometry_msgs::Pose pose;
 			pose.position = p;
@@ -151,7 +151,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 			v2 += view_point;
 			//ROS_INFO("(ViewConeGenerator) V2 (actual): (%f, %f, %f); length = %f.", v2.x(), v2.y(), v2.z(), length);
 			
-			//ROS_INFO("(ViewConeGenerator) Triangle: (%f, %f, %f), (%f, %f, %f), (%f, %f, %f).", p.x, p.y, p.z, v1.x(), v1.y(), v1.z(), v2.x(), v2.y(), v2.z());
+			ROS_INFO("(ViewConeGenerator) Triangle: (%f, %f, %f), (%f, %f, %f), (%f, %f, %f).", p.x, p.y, p.z, v1.x(), v1.y(), v1.z(), v2.x(), v2.y(), v2.z());
 			
 			// The triangle now is view_point, v1, v2, we use a flood algorithm to determine which cells
 			// are inside the viewing cone.
@@ -162,10 +162,27 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 			
 			std::vector<occupancy_grid_utils::Cell> complete_list;
 			
-			while (open_list.size() > 0) {
+			while (open_list.size() > 0 && ros::ok()) {
 				
 				occupancy_grid_utils::Cell cell = open_list[0];
 				open_list.erase(open_list.begin());
+				
+				// Make sure this cell was not already added.
+				bool has_been_processed = false;
+				for (std::vector<occupancy_grid_utils::Cell>::const_iterator ci = complete_list.begin(); ci != complete_list.end(); ++ci) {
+					const occupancy_grid_utils::Cell& completed_cell = *ci;
+					if (completed_cell.x == cell.x && completed_cell.y == cell.y) {
+						has_been_processed = true;
+						break;
+					}
+				}
+				
+				if (has_been_processed) {
+					//std::cout << "\tHas already been processed, move on!" << std::endl;
+					continue;
+				}
+				
+				//std::cout << "[" << open_list.size() << ", " << complete_list.size() << "; max=" << last_received_occupancy_grid_msgs_.info.width * last_received_occupancy_grid_msgs_.info.height << "] Process: (" << cell.x << ", " << cell.y << ")" << std::endl;
 				
 				// Check if the cell is inside the triangle.
 				geometry_msgs::Point cell_centre_point = occupancy_grid_utils::cellCenter(last_received_occupancy_grid_msgs_.info, cell);
@@ -184,20 +201,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 				}
 				
 				if (!is_in_triangle) {
-					continue;
-				}
-				
-				// Make sure this cell was not already added.
-				bool has_been_processed = false;
-				for (std::vector<occupancy_grid_utils::Cell>::const_iterator ci = complete_list.begin(); ci != complete_list.end(); ++ci) {
-					const occupancy_grid_utils::Cell& completed_cell = *ci;
-					if (completed_cell.x == cell.x && completed_cell.y == cell.y) {
-						has_been_processed = true;
-						break;
-					}
-				}
-				
-				if (has_been_processed) {
+					//std::cout << "\tIs not inside the triangle!" << std::endl;
 					continue;
 				}
 				
@@ -207,8 +211,8 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 				occupancy_grid_utils::Cell new_cell;
 				for (int x = cell.x - 1; x < cell.x + 2; ++x) {
 					for (int y = cell.y - 1; y < cell.y + 2; ++y) {
-						if (x > -1 && x + 1 < last_received_occupancy_grid_msgs_.info.width &&
-						    y > -1 && y + 1 < last_received_occupancy_grid_msgs_.info.height)
+						if (x > -1 && x < last_received_occupancy_grid_msgs_.info.width &&
+						    y > -1 && y < last_received_occupancy_grid_msgs_.info.height)
 						{
 							new_cell.x = x;
 							new_cell.y = y;
@@ -218,7 +222,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 				}
 			}
 			
-			//ROS_INFO("(ViewConeGenerator) Finished flood algorithm, %d cells in view.", complete_list.size());
+			ROS_INFO("(ViewConeGenerator) Finished flood algorithm, %d cells in view.", complete_list.size());
 			
 			// Next we determine which of these cell points are visible from 'view_point'.
 			std::vector<occupancy_grid_utils::Cell> visible_cells;

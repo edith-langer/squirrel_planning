@@ -67,7 +67,7 @@ namespace KCL_rosplan {
 		std::transform(sound_command.data.begin(), sound_command.data.end(), sound_command.data.begin(), ::toupper);
 		sound_pub_.publish(sound_command);
 	
-		for (unsigned int i = 0; i < 10; ++i)
+		for (unsigned int i = 0; i < 3; ++i)
 		{
 			ros::spinOnce();
 			

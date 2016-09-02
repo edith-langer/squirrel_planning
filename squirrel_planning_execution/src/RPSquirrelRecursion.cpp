@@ -46,6 +46,9 @@ namespace KCL_rosplan {
 		pddl_generation_service = nh.advertiseService("/kcl_rosplan/generate_planning_problem", &KCL_rosplan::RPSquirrelRecursion::generatePDDLProblemFile, this);
 
 		nh.getParam("/squirrel_planning_execution/stop_when_enough_lumps_found", stop_when_enough_lumps_found);
+		nh.getParam("/number_of_toys", number_of_toys);
+		
+		ROS_INFO("KCL: (PS) Number of toys to find %d.", number_of_toys);
 		
 		std::string occupancyTopic("/map");
 		nh.param("occupancy_topic", occupancyTopic, occupancyTopic);
@@ -528,7 +531,7 @@ namespace KCL_rosplan {
 			bounding_box.push_back(p3);
 			bounding_box.push_back(p4);
 			bounding_box.push_back(p2);
-			view_cone_generator->createViewCones(view_poses, bounding_box, 10, 5, 30.0f, 2.0f, 10, 0.35f);
+			view_cone_generator->createViewCones(view_poses, bounding_box, 10, 5, 30.0f, 2.0f, 100, 0.35f);
 			
 			// Add these poses to the knowledge base.
 			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;

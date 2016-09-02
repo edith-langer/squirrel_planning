@@ -1,9 +1,13 @@
 ff: found legal plan as follows
 
-step    0: PICKUP_OBJECT KENNY WP0 O1
-        1: PICKUP_OBJECT KENNY WP0 O2
-        2: PICKUP_OBJECT KENNY WP0 O3
-        3: PICKUP_OBJECT KENNY WP0 O4
-     
+step    0: PICKUP_OBJECT KENNY WP0 obj0
+        1: PUTDOWN_OBJECT KENNY WP0 obj0
+        2: PICKUP_OBJECT KENNY WP0 obj1
+        3: PUTDOWN_OBJECT KENNY WP0 obj1
+        4: PICKUP_OBJECT KENNY WP0 obj2
+        5: PUTDOWN_OBJECT KENNY WP0 obj2
+        6: PICKUP_OBJECT KENNY WP0 obj3
+        7: PUTDOWN_OBJECT KENNY WP0 obj3
+        8: PICKUP_OBJECT KENNY WP0 obj4
 
 time spent:    0.00 seconds

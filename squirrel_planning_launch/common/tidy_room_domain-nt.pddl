@@ -16,7 +16,7 @@
 	(accessible ?from ?to - area)
 )
 
-(:action move
+(:action goto_waypoint
 	:parameters (?v - robot ?from ?to - area)
 	:precondition (and
 		(robot_in ?v ?from)

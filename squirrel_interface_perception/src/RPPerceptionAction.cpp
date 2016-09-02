@@ -68,7 +68,7 @@ namespace KCL_rosplan {
 		// find dynamic objects
 		squirrel_object_perception_msgs::FindDynamicObjects fdSrv;
 		if (!find_dynamic_objects_client.call(fdSrv)) {
-			ROS_ERROR("KCL: (PerceptionAction) Could not call the find_dyamic_objects service.");
+			ROS_ERROR("KCL: (PerceptionAction) Could not call the find_dynamic_objects service.");
 		}
 
 		// add all new objects
@@ -121,11 +121,13 @@ namespace KCL_rosplan {
 		ROS_INFO("KCL: (PerceptionAction) explore action recieved");
 
 		// get waypoint ID from action dispatch
-		std::string objectID, wpID;
+		std::string objectID, wpID, fromID;
 		bool foundObject = false;
 		for(size_t i=0; i<msg->parameters.size(); i++) {
 			if(0==msg->parameters[i].key.compare("view"))
 				wpID = msg->parameters[i].value;
+			if(0==msg->parameters[i].key.compare("from"))
+				fromID = msg->parameters[i].value;
 			if(0==msg->parameters[i].key.compare("o")) {
 				objectID = msg->parameters[i].value;
 				foundObject = true;
@@ -135,6 +137,9 @@ namespace KCL_rosplan {
 			ROS_INFO("KCL: (PerceptionAction) aborting action dispatch; malformed parameters");
 			return;
 		}
+
+		// NOTE: Only for the sorting game.
+		objectID = "object1";
 
 		// publish feedback (enabled)
 		publishFeedback(msg->action_id,"action enabled");
@@ -148,7 +153,47 @@ namespace KCL_rosplan {
 		examine_action_client.waitForResult();
 		actionlib::SimpleClientGoalState state = examine_action_client.getState();
 		bool success =  (state == actionlib::SimpleClientGoalState::SUCCEEDED);
-		ROS_INFO("KCL: (PerceptionAction) chack object finished: %s", state.toString().c_str());
+		ROS_INFO("KCL: (PerceptionAction) check object finished: %s", state.toString().c_str());
+
+		// update classifiable_from in the knowledge base .
+		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+		rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
+		knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+		knowledge_item.attribute_name = "classifiable_from";
+		knowledge_item.is_negative = !success;
+
+		diagnostic_msgs::KeyValue kv;
+		kv.key = "from";
+		kv.value = fromID;
+		knowledge_item.values.push_back(kv);
+	
+		kv.key = "view";
+		kv.value = wpID;
+		knowledge_item.values.push_back(kv);
+	
+		kv.key = "o";
+		kv.value = objectID;
+		knowledge_item.values.push_back(kv);
+
+		knowledge_update_service.request.knowledge = knowledge_item;
+		if (!update_knowledge_client.call(knowledge_update_service)) {
+			ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not add the classifiable_from predicate to the knowledge base.");
+			exit(-1);
+		}
+		ROS_INFO("KCL: (ClassifyObjectPDDLAction) Added %s (classifiable_from %s %s %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", fromID.c_str(), wpID.c_str(), objectID.c_str());
+	
+		// Remove the opposite option from the knowledge base.
+		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
+		knowledge_item.is_negative = !knowledge_item.is_negative;
+		knowledge_update_service.request.knowledge = knowledge_item;
+		if (!update_knowledge_client.call(knowledge_update_service)) {
+			ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not remove the classifiable_from predicate to the knowledge base.");
+			exit(-1);
+		}
+		ROS_INFO("KCL: (ClassifyObjectPDDLAction) Removed %s (classifiable_from %s %s %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", fromID.c_str(), wpID.c_str(), objectID.c_str());
+	
+		knowledge_item.values.clear();
 
 		if (success) {
 
@@ -165,6 +210,8 @@ namespace KCL_rosplan {
 				squirrel_object_perception_msgs::SceneObject so = (*ci);
 				updateObject(so, wpID);
 			}
+
+
 
 			// publish feedback
 			ROS_INFO("KCL: (PerceptionAction) action complete");
@@ -189,6 +236,8 @@ namespace KCL_rosplan {
 		wpid << "waypoint_" << object.id;
 		std::string wpName(wpid.str());
 
+		ROS_INFO("KCL: (PerceptionAction) Check if %s is of type dinosaur", object.id.c_str());
+
 		// add the new object
 		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
 		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
@@ -210,6 +259,7 @@ namespace KCL_rosplan {
 		// object_at fact	
 		knowledge_update_service.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
 		knowledge_update_service.request.knowledge.attribute_name = "object_at";
+		knowledge_update_service.request.knowledge.is_negative = false;
 		diagnostic_msgs::KeyValue kv;
 		kv.key = "o";
 		kv.value = object.id;
@@ -226,14 +276,31 @@ namespace KCL_rosplan {
 		knowledge_update_service.request.knowledge.attribute_name = "is_of_type";
 		knowledge_update_service.request.knowledge.values.pop_back();
 		kv.key = "t";
+                kv.value = "dinosaur";
+		knowledge_update_service.request.knowledge.values.push_back(kv);
+		knowledge_update_service.request.knowledge.is_negative = object.category.find("dinosaur") == std::string::npos;
+
+		if (knowledge_update_service.request.knowledge.is_negative)
+		{
+			ROS_INFO("KCL: (PerceptionAction) %s is NOT a dinosaur", object.id.c_str());
+		}
+		else
+		{
+			ROS_INFO("KCL: (PerceptionAction) %s IS a dinosaur", object.id.c_str());
+		}
+
+/*
         // TODO remove this after demo
         if(object.category.find("dinosaur") != std::string::npos)
                 kv.value = "dinosaur";
         else kv.value = object.category;
-		knowledge_update_service.request.knowledge.values.push_back(kv);
+*/
+		
 		if (!update_knowledge_client.call(knowledge_update_service)) {
 			ROS_ERROR("KCL: (PerceptionAction) Could not add is_of_type predicate to the knowledge base.");
 		}
+
+		// Add the opposite to the knowledge base.
 
 		//data
 		geometry_msgs::PoseStamped ps;

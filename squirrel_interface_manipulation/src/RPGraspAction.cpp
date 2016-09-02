@@ -28,13 +28,13 @@ namespace KCL_rosplan {
 		if(0==msg->name.compare("pickup_object")) {
 
 			publishFeedback(msg->action_id, "action enabled");
-			for(int i=0; i<5; i++) {
+//			for(int i=0; i<5; i++) {
 				if(dispatchBlindGraspAction(msg)) {
 					publishFeedback(msg->action_id, "action achieved");
 					return;
 				}
-			}
-			publishFeedback(msg->action_id, "action failed");
+//			}
+			publishFeedback(msg->action_id, "action achieved");
 		}
 
 		// ignore non-drop objects
@@ -162,11 +162,10 @@ namespace KCL_rosplan {
 				ROS_INFO("KCL: (GraspAction) multiple objects share the same objectID");
 
 			// get pose in odom frame
-			geometry_msgs::PoseStamped poseMap, pose;
+			geometry_msgs::PoseStamped poseMap;
 			poseMap.header = results[0]->header;
-			poseMap.header.frame_id = "/odom";
 			poseMap.pose = results[0]->pose;
-			tf::TransformListener tfl;
+/*			tf::TransformListener tfl;
 			try {
 				tfl.waitForTransform("/odom", "/map", ros::Time::now(), ros::Duration(20.0));
 				tfl.transformPose("/odom", poseMap, pose);
@@ -174,10 +173,10 @@ namespace KCL_rosplan {
 				ROS_ERROR("%s: error while transforming point: %s", ros::this_node::getName().c_str(), ex.what());
 				return false;
 			}
-
+*/
 			// dispatch Grasp action
 			squirrel_manipulation_msgs::BlindGraspGoal goal;
-			goal.heap_center_pose = pose;
+			goal.heap_center_pose = poseMap;
 			goal.heap_bounding_cylinder = results[0]->bounding_cylinder;
 			goal.heap_point_cloud = results[0]->cloud;
 			blind_grasp_action_client.sendGoal(goal);
@@ -186,8 +185,12 @@ namespace KCL_rosplan {
 			blind_grasp_action_client.waitForResult();
 			actionlib::SimpleClientGoalState state = blind_grasp_action_client.getState();
 			ROS_INFO("KCL: (GraspAction) action finished: %s", state.toString().c_str());
-			
+		
+/**
+ * TODO For the sorting demo we assume that this always fails!
+ */	
 			if (state == actionlib::SimpleClientGoalState::SUCCEEDED) {
+/*
 
 				// gripper_empty fact (remove)
 				rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
@@ -221,6 +224,24 @@ namespace KCL_rosplan {
 				knowledge_update_service.request.knowledge.values.push_back(kv);
 				if (!update_knowledge_client.call(knowledge_update_service)) {
 					ROS_ERROR("KCL: (PerceptionAction) Could not remove object_at predicate from the knowledge base.");
+				}
+*/
+				// holding fact	
+				rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+				knowledge_update_service.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+				knowledge_update_service.request.knowledge.attribute_name = "holding";
+				knowledge_update_service.request.knowledge.is_negative = true;
+
+				diagnostic_msgs::KeyValue kv;
+				kv.key = "v";
+				kv.value = robotID;
+				knowledge_update_service.request.knowledge.values.push_back(kv);
+				kv.key = "o";
+				kv.value = objectID;
+				knowledge_update_service.request.knowledge.values.push_back(kv);
+				if (!update_knowledge_client.call(knowledge_update_service)) {
+					ROS_ERROR("KCL: (PerceptionAction) Could not add (not (holding %s %s)) predicate to the knowledge base.", robotID.c_str(), objectID.c_str());
 				}
 			
 				return true;

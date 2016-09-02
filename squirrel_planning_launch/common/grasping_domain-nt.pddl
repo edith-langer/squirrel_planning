@@ -23,5 +23,14 @@
 	)
 )
 
+(:action putdown_object
+	:parameters (?r - robot ?wp - waypoint ?ob - object)
+	:precondition (and
+		(robot_at ?r ?wp)
+	)
+	:effect (and 
+		(not (grasped ?o))
+	)
+)
 )
 

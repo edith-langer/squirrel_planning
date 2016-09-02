@@ -1,6 +1,7 @@
+<?xml version="1.0"?>
 <launch>
 
-	<!-- domain file -->
+	<!-- data paths -->
 	<param name="data_path" value="$(find squirrel_planning_launch)/common/" />
 	<param name="planner_path" value="$(find rosplan_planning_system)/common/bin/" />
 
@@ -8,15 +9,13 @@
 	<param name="domain_path" value="$(find squirrel_planning_launch)/common/sorting_game_domain.pddl" />
 
 	<!-- knowledge base -->
-	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen">
-	</node>
+	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen" />
 
 	<!-- scene database (MongoDB) -->
 	<node name="rosplan_scene_database" pkg="mongodb_store" type="mongodb_server.py" respawn="false" output="screen">
 		<param name="database_path" value="$(find rosplan_knowledge_base)/common/mongoDB" />
 	</node>
-	<node name="rosplan_scene_message_store" pkg="mongodb_store" type="message_store_node.py" respawn="false" output="log">
-	</node>
+	<node name="rosplan_scene_message_store" pkg="mongodb_store" type="message_store_node.py" respawn="false" output="log" />
 
 	<!-- planning system -->
 	<node name="rosplan_planning_system" pkg="rosplan_planning_system" type="planner" respawn="false" output="screen">
@@ -30,30 +29,16 @@
 		<param name="generate_default_problem" value="true" />
 	</node>
 
-	<!-- Load the waypoints in the MongoDB -->
+	<!-- Load the waypoints -->
 	<param name="waypoint_file" value="$(find squirrel_planning_launch)/common/waypoints_sorting_game.txt" />
 	<node name="rosplan_roadmap_server" pkg="rosplan_interface_mapping" type="rpsimplemapServer" respawn="false" output="screen">
 	    <param name="data_path" value="$(find rosplan_planning_system)/common/" />
 	</node>
 
-	<!-- simulation acitons 
-	<node name="simulated_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen">
-		<param name="query_user" value="false" />
-		<param name="simulate_goto_waypoint" value="false"/>
-		<param name="simulate_explore_waypoint" value="false"/>
-		<param name="simulate_clear_object" value="true"/>
-		<param name="simulate_classify_object" value="false"/>
-		<param name="simulate_put_object_in_box" value="true"/>
-		<param name="simulate_pickup_object" value="true"/>
-		<param name="simulate_drop_object" value="true"/>
-	</node>
-	-->
-	
+	<!-- Interface nodes -->
 	<node name="squirrel_interface_speech" pkg="squirrel_interface_speech" type="rpspeechServer" output="screen" />
-	
 	<node name="squirrel_interface_emote" pkg="squirrel_interface_emote" type="rpEmoteServer" output="screen" />
 
-	<node name="sorting_game" pkg="squirrel_planning_execution" type="sortingGame" output="screen" />
 
 	<node name="squirrel_planning_interface_perception" pkg="squirrel_interface_perception" type="rpperceptionServer" output="screen">
 		<param name="action_server" value="/squirrel_look_for_objects" />
@@ -63,15 +48,21 @@
 		<param name="action_server" value="/move_base" />
 	</node>
 
-	<node name="squirrel_expression" pkg="squirrel_expression" type="squirrel_expression">
-		<param name="sound_directory" value="$(find squirrel_expression)/data/sounds/" />
-	</node>
 	<node name="squirrel_motion_expression" pkg="squirrel_expression" type="squirrel_motion_expression" />
 
 	<node name="squirrel_interface_manipulation" pkg="squirrel_interface_manipulation" type="rpgraspServer" respawn="false" output="screen">
 		<param name="blind_grasp_action_server" value="/blindGrasp" />
 	</node>
 
+	<node name="squirrel_planning_interface_pushing" pkg="squirrel_interface_manipulation" type="rppushServer" output="screen">
+		<param name="smash_action_server" value="/smash" />
+		<param name="push_action_server" value="/push" />
+	</node>
+
 	<node name="squirrel_grasping_node" pkg="squirrel_grasping" type="squirrel_blind_grasping_node.py" output="screen"/>
+
+	<!-- setup initial state -->
+	<node name="sorting_game" pkg="squirrel_planning_execution" type="sortingGame" output="screen" />
+
 </launch>
 

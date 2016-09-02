@@ -1,6 +1,7 @@
+<?xml version="1.0"?>
 <launch>
 
-	<!-- domain file -->
+	<!-- data paths -->
 	<param name="data_path" value="$(find squirrel_planning_launch)/common/" />
 	<param name="planner_path" value="$(find rosplan_planning_system)/common/bin/" />
 
@@ -8,29 +9,27 @@
 	<param name="domain_path" value="$(find squirrel_planning_launch)/common/tidy_room_domain-nt.pddl" />
 
 	<!-- knowledge base -->
-	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen">
-	</node>
+	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen" />
 
 	<!-- scene database (MongoDB) -->
 	<node name="rosplan_scene_database" pkg="mongodb_store" type="mongodb_server.py" respawn="false" output="screen">
 	    <param name="database_path" value="$(find rosplan_knowledge_base)/common/mongoDB" />
 	</node>
-	<node name="rosplan_scene_message_store" pkg="mongodb_store" type="message_store_node.py" respawn="false" output="log">
-	</node>
+	<node name="rosplan_scene_message_store" pkg="mongodb_store" type="message_store_node.py" respawn="false" output="log" />
 
 	<!-- planning system -->
 	<node name="rosplan_planning_system" pkg="rosplan_planning_system" type="planner" respawn="false" output="screen">
 		<!-- directory for generated files -->
 	    <param name="data_path" value="$(find squirrel_planning_launch)/common/" />
 	    <param name="problem_path" value="$(find squirrel_planning_launch)/common/problem.pddl" />
-            <param name="strl_file_path" value="$(find squirrel_planning_launch)/common/plan.strl" />
+		<param name="strl_file_path" value="$(find squirrel_planning_launch)/common/plan.strl" />
 
 		<!-- to run the planner -->
 	    <param name="planner_command" value="timeout 10 $(find rosplan_planning_system)/common/bin/ff -o DOMAIN -f PROBLEM" />
-            <param name="generate_default_problem" value="false" />
+		<param name="generate_default_problem" value="false" />
 	</node>
 
-	<!-- simulation acitons -->
+	<!-- simulation acitons (ALL TRUE) -->
 	<node name="simulated_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen">
 		<param name="query_user" value="false" />
 		<param name="simulate_goto_waypoint" value="true"/>

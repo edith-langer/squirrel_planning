@@ -85,7 +85,7 @@ namespace KCL_rosplan {
 		bool stop_when_enough_lumps_found;
 		
 		// For this experiment we know the number of toys we need to find.
-		unsigned int number_of_toys;
+		int number_of_toys;
 
 	public:
 
