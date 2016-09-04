@@ -523,15 +523,11 @@ namespace KCL_rosplan {
 
 			std::vector<geometry_msgs::Pose> view_poses;
 			std::vector<tf::Vector3> bounding_box;
-			tf::Vector3 p1(-2.0, -9.75, 0.00);
-			tf::Vector3 p2(-2.0, 1.62, 0.00);
-			tf::Vector3 p3(6.0, 1.62, 0.00);
-			tf::Vector3 p4(6.0, -9.75, 0.00);
-			bounding_box.push_back(p1);
-			bounding_box.push_back(p3);
-			bounding_box.push_back(p4);
-			bounding_box.push_back(p2);
-			view_cone_generator->createViewCones(view_poses, bounding_box, 10, 5, 30.0f, 2.0f, 100, 0.35f);
+			bounding_box.push_back(tf::Vector3(-2.0, 0.9, 0.0));
+			bounding_box.push_back(tf::Vector3(-2.0, -9.54, 0.0));
+			bounding_box.push_back(tf::Vector3(6.05, -9.54, 0.0));
+			bounding_box.push_back(tf::Vector3(6.05, 0.9, 0.0));
+			view_cone_generator->createViewCones(view_poses, bounding_box, 10, 5, 0.94f, 4.0f, 100, 0.35f);
 			
 			// Add these poses to the knowledge base.
 			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;
