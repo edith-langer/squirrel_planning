@@ -621,22 +621,24 @@ namespace KCL_rosplan {
 
 		} else if (action_name == "examine_area") {
 			
-			// Fetch all the objects.
+			// Delete all the previous viewpoines.
+			ROS_INFO("KCL: (RPSquirrelRecursion) Remove all previous waypoints.");
+			rosplan_knowledge_msgs::KnowledgeUpdateService updateSrv;
+			/*
+			updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
+			updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
+			updateSrv.request.knowledge.instance_type = "waypoint";
+			update_knowledge_client.call(updateSrv);
+			*/
+			// Fetch all the discovered objects.
 			rosplan_knowledge_msgs::GetAttributeService get_attribute;
 			get_attribute.request.predicate_name = "object_at";
 			if (!get_attribute_client.call(get_attribute)) {
-				ROS_ERROR("KCL: (RPSquirrelRoadmap) Failed to recieve the attributes of the predicate 'object_at'");
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Failed to recieve the attributes of the predicate 'object_at'");
 				return false;
 			}
 			
-			std::map<std::string, std::string> object_to_location_mappings;
-			std::map<std::string, std::vector<std::string> > near_waypoint_mappings;
-			int max_objects = 0;
 			for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = get_attribute.response.attributes.begin(); ci != get_attribute.response.attributes.end(); ++ci) {
-
-				max_objects++;
-				if(max_objects > 3) break;
-
 				const rosplan_knowledge_msgs::KnowledgeItem& knowledge_item = *ci;
 				std::string object_predicate;
 				std::string location_predicate;
@@ -651,57 +653,97 @@ namespace KCL_rosplan {
 					}
 				}
 				
-				object_to_location_mappings[object_predicate] = location_predicate;
-				
-				// Find waypoints that are near this waypoint, these waypoints are used by the 
-				// robot to pickup or push this object.
-				rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
-				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
-				
-				std::vector<std::string> near_waypoints;
-				for (unsigned int i = 0; i < 1; ++i)
-				{
-					rosplan_knowledge_msgs::KnowledgeItem kenny_knowledge;
-					kenny_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
-					std::stringstream ss;
-					ss << "near_" << location_predicate << "_" << i;
-					
-					near_waypoints.push_back(ss.str());
-					
-					kenny_knowledge.instance_type = "waypoint";
-					kenny_knowledge.instance_name = ss.str();
-					
-					knowledge_update_service.request.knowledge = kenny_knowledge;
-					if (!update_knowledge_client.call(knowledge_update_service)) {
-						ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the waypoint %s to the knowledge base.", ss.str().c_str());
-						exit(-1);
-					}
-					ROS_INFO("KCL: (RPSquirrelRecursion) Added %s to the knowledge base.", ss.str().c_str());
-					
-					kenny_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-					kenny_knowledge.attribute_name = "near";
-					kenny_knowledge.is_negative = false;
-					diagnostic_msgs::KeyValue kv;
-					kv.key = "wp1";
-					kv.value = ss.str();
-					kenny_knowledge.values.push_back(kv);
-					kv.key = "wp2";
-					kv.value = location_predicate;
-					kenny_knowledge.values.push_back(kv);
-					knowledge_update_service.request.knowledge = kenny_knowledge;
-					if (!update_knowledge_client.call(knowledge_update_service)) {
-						ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (near %s %s) to the knowledge base.", ss.str().c_str(), location_predicate.c_str());
-						exit(-1);
-					}
-					ROS_INFO("KCL: (RPSquirrelRecursion) Added (near %s %s) to the knowledge base.", ss.str().c_str(), location_predicate.c_str());
-					kenny_knowledge.values.clear();
-				}
-				near_waypoint_mappings[location_predicate] = near_waypoints;
-			}
-			std_msgs::Int8 nr_objects;
-			nr_objects.data = object_to_location_mappings.size();
-			ROS_INFO("KCL: (RPSquirrelRecursion) Found %d objects to eximine.", nr_objects.data);
+				ROS_INFO("KCL: (RPSquirrelRecursion) Object location is: %s", location_predicate.c_str());
 			
+				// Find locations from where we can observe
+				squirrel_waypoint_msgs::ExamineWaypoint getTaskPose;
+
+
+				// fetch position of object from message store
+				squirrel_object_perception_msgs::SceneObject lump;
+
+				std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > sceneObjects_results;
+				message_store.query<squirrel_object_perception_msgs::SceneObject>(sceneObjects_results);
+
+				ROS_INFO("KCL: (RPSquirrelRecursion) Number of objects found: %zu", sceneObjects_results.size());
+/*
+				// fetch position of object from message store
+				std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > results;
+				if(message_store.queryNamed<squirrel_object_perception_msgs::SceneObject>(object_predicate, results)) {
+					if(results.size()<1) {
+						ROS_ERROR("KCL: (RPSquirrelRoadmap) aborting waypoint request; no matching obID %s", object_predicate.c_str());
+						return false;
+					}
+				} else {
+					ROS_ERROR("KCL: (RPSquirrelRoadmap) could not query message store to fetch object pose");
+					return false;
+				}
+*/
+
+				// Request a classification waypoint for each object.
+				for (std::vector<boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> >::const_iterator ci = sceneObjects_results.begin(); ci != sceneObjects_results.end(); ++ci)
+				{
+					const squirrel_object_perception_msgs::SceneObject& obj = **ci;
+					getTaskPose.request.object_pose.header = obj.header;
+					getTaskPose.request.object_pose.pose = obj.pose;
+					if (!classify_object_waypoint_client.call(getTaskPose)) {
+						ROS_ERROR("KCL: (RPSquirrelRoadmap) Failed to recieve classification waypoints for %s.", object_predicate.c_str());
+						return false;
+					}
+	
+					std_msgs::Int8 debug_pose_number;
+					debug_pose_number.data = getTaskPose.response.poses.size();
+					ROS_INFO("KCL: (RPSquirrelRecursion) Found %d observation poses", debug_pose_number.data);
+
+					// Add all the waypoints to the knowledge base.
+					std::stringstream ss;
+					std::vector<std::string> observation_location_predicates;
+					for(int i=0;i<getTaskPose.response.poses.size(); i++) {
+					
+						ss.str(std::string());
+						ss << object_predicate << "_observation_wp" << i;
+
+						geometry_msgs::PoseStamped pose;
+						pose.header.frame_id = "/map";
+						pose.pose = getTaskPose.response.poses[i].pose.pose;
+						std::string id(message_store.insertNamed(ss.str(), pose));
+					
+						ROS_INFO("KCL: (RPSquirrelRecursion) Process observation pose: %s", ss.str().c_str());
+					
+						rosplan_knowledge_msgs::KnowledgeUpdateService updateSrv;
+						updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+						updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
+						updateSrv.request.knowledge.instance_type = "waypoint";
+						updateSrv.request.knowledge.instance_name = ss.str();
+						update_knowledge_client.call(updateSrv);
+					
+						observation_location_predicates.push_back(ss.str());
+					
+						// Setup the goal.
+						updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+						updateSrv.request.knowledge.attribute_name = "explored";
+						updateSrv.request.knowledge.is_negative = false;
+						diagnostic_msgs::KeyValue kv;
+						kv.key = "wp";
+						kv.value = ss.str();
+						updateSrv.request.knowledge.values.push_back(kv);
+					
+						// Add the goal.
+						updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_GOAL;
+						//updateSrv.request.knowledge = update_knowledge_client;
+						if (!update_knowledge_client.call(updateSrv)) {
+							ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the goal (explored %s) to the knowledge base.", ss.str().c_str());
+							exit(-1);
+						}
+						ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (explored %s) to the knowledge base.", ss.str().c_str());
+						
+						// only consider a single waypoint for now.
+						break;
+					}
+				}
+			}
+			
+			/*
 			// Get the location of kenny.
 			get_attribute.request.predicate_name = "robot_at";
 			if (!get_attribute_client.call(get_attribute)) {// || get_attribute.response.attributes.size() != 3) {
@@ -726,45 +768,46 @@ namespace KCL_rosplan {
 			}
 			
 			ROS_INFO("KCL: (RPSquirrelRecursion) Kenny is at waypoint: %s", robot_location.c_str());
+			ContingentStrategicClassifyPDDLGenerator::createPDDL(data_path, domain_name, problem_name, robot_location, object_to_location_mappings, near_waypoint_mappings, 3);
+			*/
 			
-			// Check which objects have already been classified.
-			get_attribute.request.predicate_name = "is_of_type";
-			if (!get_attribute_client.call(get_attribute)) {
-				ROS_ERROR("KCL: (RPSquirrelRoadmap) Failed to recieve the attributes of the predicate 'is_of_type'");
-				return false;
+			// add initial state (robot_at)
+			rosplan_knowledge_msgs::KnowledgeItem waypoint_knowledge;
+			updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+			waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
+			waypoint_knowledge.instance_type = "waypoint";
+			waypoint_knowledge.instance_name = "kenny_waypoint";
+			updateSrv.request.knowledge = waypoint_knowledge;
+			if (!update_knowledge_client.call(updateSrv)) {
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add an explore wayoint to the knowledge base.");
+				exit(-1);
 			}
 			
-			for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = get_attribute.response.attributes.begin(); ci != get_attribute.response.attributes.end(); ++ci) {
-				const rosplan_knowledge_msgs::KnowledgeItem& knowledge_item = *ci;
-				std::string object_predicate;
-				std::string type_predicate;
-				for (std::vector<diagnostic_msgs::KeyValue>::const_iterator ci = knowledge_item.values.begin(); ci != knowledge_item.values.end(); ++ci) {
-					const diagnostic_msgs::KeyValue& key_value = *ci;
-					if ("o" == key_value.key) {
-						object_predicate = key_value.value;
-					}
-					
-					if ("t" == key_value.key) {
-						type_predicate = key_value.value;
-					}
-				}
-				
-				if (type_predicate != "unknown")
-				{
-					object_to_location_mappings.erase(object_predicate);
-					ROS_INFO("KCL: (RPSquirrelRecursion) No need to classify %s it is of type %s", object_predicate.c_str(), type_predicate.c_str());
-				}
+			// Set the location of the robot.
+			waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+			waypoint_knowledge.attribute_name = "robot_at";
+			waypoint_knowledge.is_negative = false;
+			diagnostic_msgs::KeyValue kv;
+			kv.key = "v";
+			kv.value = "kenny";
+			waypoint_knowledge.values.push_back(kv);
+			kv.key = "wp";
+			kv.value = "kenny_waypoint";
+			waypoint_knowledge.values.push_back(kv);
+			updateSrv.request.knowledge = waypoint_knowledge;
+			if (!update_knowledge_client.call(updateSrv)) {
+				ROS_ERROR("KCL: (TidyRooms) Could not add the fact (robot_at kenny room) to the knowledge base.");
+				exit(-1);
 			}
+			ROS_INFO("KCL: (TidyRooms) Added (robot_at kenny room) to the knowledge base.");
+			waypoint_knowledge.values.clear();
 			
-			if (object_to_location_mappings.empty())
-			{
-				ROS_INFO("KCL: (RPSquirrelRecursion) All objects are all ready classified (or we found none!)");
-			}
-			else
-			{
-				ContingentStrategicClassifyPDDLGenerator::createPDDL(data_path, domain_name, problem_name, robot_location, object_to_location_mappings, near_waypoint_mappings, 3);
-			}
+			PlanningEnvironment planning_environment;
+			planning_environment.parseDomain(domain_path);
+			planning_environment.update(*node_handle);
+			PDDLProblemGenerator pddl_problem_generator;
 			
+			pddl_problem_generator.generatePDDLProblemFile(planning_environment, problem_path);
 		// Create the classify_object contingent domain and problem files.
 		} else if (action_name == "observe-classifiable_on_attempt") {
 		
