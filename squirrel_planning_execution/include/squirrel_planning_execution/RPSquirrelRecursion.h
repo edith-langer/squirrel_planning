@@ -5,6 +5,7 @@
 #include <boost/foreach.hpp>
 #include "mongodb_store/message_store.h"
 #include "geometry_msgs/PoseStamped.h"
+#include <geometry_msgs/Point.h>
 #include "std_srvs/Empty.h"
 #include "diagnostic_msgs/KeyValue.h"
 #include <actionlib/client/simple_action_client.h>
@@ -40,6 +41,18 @@ namespace KCL_rosplan {
 
 	class ViewConeGenerator;
 	
+	struct ToyState
+	{
+		ToyState(const geometry_msgs::Point& location)
+			: location_(location), is_examined_(false)
+		{
+			
+		}
+		
+		geometry_msgs::Point location_;
+		bool is_examined_;
+	};
+	
 	class RPSquirrelRecursion
 	{
 
@@ -56,6 +69,9 @@ namespace KCL_rosplan {
 		ros::ServiceClient get_instance_client;
 		ros::ServiceClient get_attribute_client;
 		ros::ServiceClient query_knowledge_client;
+		
+		// Gazebo interfaces.
+		ros::ServiceClient gazebo_spawn_model_client;
 		
 		// waypoint request services
 		ros::ServiceClient classify_object_waypoint_client;
@@ -86,11 +102,17 @@ namespace KCL_rosplan {
 		
 		// For this experiment we know the number of toys we need to find.
 		int number_of_toys;
+		
+		// The locations of the toys toy_locationsin this domain.
+		std::vector<ToyState> toy_locations;
 
 	public:
 
 		/* constructor */
 		RPSquirrelRecursion(ros::NodeHandle &nh);
+		
+		/* Check if we have achieved our objectives and update the state of the toys. */
+		bool taskAchieved(const std::string& action_name);
 
 		/* listen to and process action_dispatch topic */
 		void dispatchCallback(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg);
