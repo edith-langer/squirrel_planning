@@ -16,10 +16,15 @@ int main(int argc, char **argv) {
 	}
 	
 	std::vector<tf::Vector3> bounding_box;
-	bounding_box.push_back(tf::Vector3(-2.0, 0.9, 0.0));
-	bounding_box.push_back(tf::Vector3(-2.0, -9.54, 0.0));
-	bounding_box.push_back(tf::Vector3(6.05, -9.54, 0.0));
-	bounding_box.push_back(tf::Vector3(6.05, 0.9, 0.0));
+	//bounding_box.push_back(tf::Vector3(-2.0, 0.9, 0.0));
+	//bounding_box.push_back(tf::Vector3(-2.0, -9.54, 0.0));
+	//bounding_box.push_back(tf::Vector3(6.05, -9.54, 0.0));
+	//bounding_box.push_back(tf::Vector3(6.05, 0.9, 0.0));
+	
+	bounding_box.push_back(tf::Vector3(2.7, -6.2, 0.0));
+	bounding_box.push_back(tf::Vector3(-2.0, -3.5, 0.0));
+	bounding_box.push_back(tf::Vector3(1.0, 1.4, 0.0));
+	bounding_box.push_back(tf::Vector3(6.0, -0.7, 0.0));
 	
 	int occupancy_threshold = ::atoi(argv[1]); // 2
 	int nr_view_cones = ::atoi(argv[2]);       // 20

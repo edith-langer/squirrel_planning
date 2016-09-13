@@ -62,12 +62,6 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 			
 			geometry_msgs::Point p = occupancy_grid_utils::cellCenter(last_received_occupancy_grid_msgs_.info, c);
 			
-			// Check if this cell point is not too close to any obstacles.
-			if (isBlocked(p, safe_distance)) {
-				std::cout << "#";
-				continue;
-			}
-			
 			// Check if this point falls within the bounding box.
 			{
 				bool falls_within_bounded_box = true;
@@ -76,7 +70,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 				for (int i = 0; i < bounding_box.size(); ++i)
 				{
 					const tf::Vector3& v1 = bounding_box[i];
-					const tf::Vector3& v2 = bounding_box[i + 1];
+					const tf::Vector3& v2 = bounding_box[(i + 1) % bounding_box.size()];
 					
 					tf::Vector3 cross_product = (cell_point - v1).cross(v2 - v1);
 					
@@ -97,14 +91,22 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 				
 				if (!falls_within_bounded_box)
 				{
-					std::cout << "b";
+					//std::cout << "b(" << p.x << "," << p.y <<")";
 					continue;
 				}
 			}
-			float yaw = ((float)rand() / (float)RAND_MAX) * 2 * M_PI;
+			
+			// Check if this cell point is not too close to any obstacles.
+			if (isBlocked(p, safe_distance)) {
+				std::cout << "#";
+				continue;
+			}
+			
+			float yaw = ((float)rand() / (float)RAND_MAX) * M_PI;
+			if ((float)rand() / (float)RAND_MAX < 0.5f) yaw = -yaw;
 			
 			//ROS_INFO("(ViewConeGenerator) Sample cone: (%d, %d) %f.", grid_x, grid_y, yaw);
-			ROS_INFO("(ViewConeGenerator) Sample cone: (%f, %f) %f.", p.x, p.y, yaw);
+			//ROS_INFO("(ViewConeGenerator) Sample cone: (%f, %f) %f.", p.x, p.y, yaw);
 			
 			geometry_msgs::Pose pose;
 			pose.position = p;
@@ -151,7 +153,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 			v2 += view_point;
 			//ROS_INFO("(ViewConeGenerator) V2 (actual): (%f, %f, %f); length = %f.", v2.x(), v2.y(), v2.z(), length);
 			
-			ROS_INFO("(ViewConeGenerator) Triangle: (%f, %f, %f), (%f, %f, %f), (%f, %f, %f).", p.x, p.y, p.z, v1.x(), v1.y(), v1.z(), v2.x(), v2.y(), v2.z());
+			//ROS_INFO("(ViewConeGenerator) Triangle: (%f, %f, %f), (%f, %f, %f), (%f, %f, %f).", p.x, p.y, p.z, v1.x(), v1.y(), v1.z(), v2.x(), v2.y(), v2.z());
 			
 			// The triangle now is view_point, v1, v2, we use a flood algorithm to determine which cells
 			// are inside the viewing cone.
@@ -222,7 +224,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 				}
 			}
 			
-			ROS_INFO("(ViewConeGenerator) Finished flood algorithm, %d cells in view.", complete_list.size());
+			//ROS_INFO("(ViewConeGenerator) Finished flood algorithm, %d cells in view.", complete_list.size());
 			
 			// Next we determine which of these cell points are visible from 'view_point'.
 			std::vector<occupancy_grid_utils::Cell> visible_cells;
@@ -234,7 +236,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 					continue;
 				}
 				
-				geometry_msgs::Point point = occupancy_grid_utils::cellCenter(last_received_occupancy_grid_msgs_.info, *ci);
+				geometry_msgs::Point point = occupancy_grid_utils::cellCenter(last_received_occupancy_grid_msgs_.info, cell);
 				
 				if (canConnect(point, p, occupancy_threshold)) {
 					visible_cells.push_back(cell);
@@ -442,7 +444,10 @@ bool ViewConeGenerator::canConnect(const geometry_msgs::Point& w1, const geometr
 		const occupancy_grid_utils::Cell& cell = *i;
 
 		// Check if this cell is occupied.
-		if (cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width < last_received_occupancy_grid_msgs_.data.size() && cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width >= 0 && last_received_occupancy_grid_msgs_.data[cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width] > occupancy_threshold)
+		if (cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width >= last_received_occupancy_grid_msgs_.data.size() ||
+		    cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width < 0 ||
+		    last_received_occupancy_grid_msgs_.data[cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width] > occupancy_threshold ||
+		    last_received_occupancy_grid_msgs_.data[cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width] == -1)
 		{
 			return false;
 		}
@@ -458,7 +463,7 @@ bool ViewConeGenerator::isBlocked(const geometry_msgs::Point& point, float min_d
 	{
 		for (float y = -min_distance - last_received_occupancy_grid_msgs_.info.resolution; y < min_distance + last_received_occupancy_grid_msgs_.info.resolution; y += last_received_occupancy_grid_msgs_.info.resolution)
 		{
-			if (sqrt(x * x + y * y) > min_distance)
+			if (sqrt((x - point.x) * (x - point.x) + (y - point.y) * (y - point.y)) > min_distance)
 			{
 				continue;
 			}
