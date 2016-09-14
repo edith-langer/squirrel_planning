@@ -2,6 +2,7 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <boost/foreach.hpp>
 #include "mongodb_store/message_store.h"
 #include "geometry_msgs/PoseStamped.h"
@@ -52,6 +53,17 @@ namespace KCL_rosplan {
 		geometry_msgs::Point location_;
 		bool is_examined_;
 	};
+	
+	void split(const string& s, char delim, std::vector<std::string>& elements)
+	{
+		std::stringstream ss;
+		ss.str(s);
+		string item;
+		while (std::getline(ss, item, delim))
+		{
+			elements.push_back(item);
+		}
+	}
 	
 	class RPSquirrelRecursion
 	{

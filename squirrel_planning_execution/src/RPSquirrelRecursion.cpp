@@ -601,11 +601,68 @@ namespace KCL_rosplan {
 
 			std::vector<geometry_msgs::Pose> view_poses;
 			std::vector<tf::Vector3> bounding_box;
-			bounding_box.push_back(tf::Vector3(-2.0, 0.9, 0.0));
-			bounding_box.push_back(tf::Vector3(-2.0, -9.54, 0.0));
-			bounding_box.push_back(tf::Vector3(6.05, -9.54, 0.0));
-			bounding_box.push_back(tf::Vector3(6.05, 0.9, 0.0));
-			view_cone_generator->createViewCones(view_poses, bounding_box, 2, 5, 0.94f, 4.0f, 100, 1.0f);
+			
+			unsigned int bounding_box_param_index = 0;
+			while (true)
+			{
+				std::stringstream bb_name;
+				bb_name << "/squirrel_interface_recursion/viewcone_bounding_box_p";
+				bb_name << bounding_box_param_index;
+				
+				if (!node_handle->hasParam(bb_name.str()))
+				{
+					ROS_INFO("KCL: (RPSquirrelRecursion) Could not find the parameter %s, bounding box complete.", bb_name.str().c_str());
+					break;
+				}
+				
+				std::string coordinate;
+				node_handle->getParam(bb_name.str(), coordinate);
+				std::vector<std::string> elements;
+				split(coordinate, ',', elements);
+				
+				if (elements.size() != 3)
+				{
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Misformatted coordinate for bounding box %s. Expected format (x,y,z)", coordinate.c_str());
+					exit (-1);
+				}
+				
+				bounding_box.push_back(tf::Vector3(::atof(elements[0].c_str()), ::atof(elements[1].c_str()), ::atof(elements[2].c_str())));
+				
+				ROS_INFO("KCL: (RPSquirrelRecursion) Found bounding box coordinate (%f, %f, %f)", ::atof(elements[0].c_str()), ::atof(elements[1].c_str()), ::atof(elements[2].c_str()));
+				
+				++bounding_box_param_index;
+			}
+			
+			
+			//bounding_box.push_back(tf::Vector3(-2.0, 0.9, 0.0));
+			//bounding_box.push_back(tf::Vector3(-2.0, -9.54, 0.0));
+			//bounding_box.push_back(tf::Vector3(6.05, -9.54, 0.0));
+			//bounding_box.push_back(tf::Vector3(6.05, 0.9, 0.0));
+			
+			int max_viewcones = 2;
+			int occupancy_threshold = 5;
+			float fov = 0.8f;
+			float view_distance = 3.0f;
+			int sample_size = 1000;
+			float safe_distance = 1.0f;
+			
+			node_handle->getParam("/squirrel_interface_recursion/viewcone_max_viewcones", max_viewcones);
+			node_handle->getParam("/squirrel_interface_recursion/viewcone_occupancy_threshold", occupancy_threshold);
+			node_handle->getParam("/squirrel_interface_recursion/viewcone_field_of_view", fov);
+			node_handle->getParam("/squirrel_interface_recursion/viewcone_view_distance", view_distance);
+			node_handle->getParam("/squirrel_interface_recursion/viewcone_sample_size", sample_size);
+			node_handle->getParam("/squirrel_interface_recursion/viewcone_safe_distance", safe_distance);
+			
+			ROS_INFO("KCL: (RPSquirrelRecursion) Generate view cones:");
+			ROS_INFO("KCL: (RPSquirrelRecursion) Max view cones: %d", max_viewcones);
+			ROS_INFO("KCL: (RPSquirrelRecursion) Occupancy threshold: %d", occupancy_threshold);
+			ROS_INFO("KCL: (RPSquirrelRecursion) Field of View (in Radians): %f", fov);
+			ROS_INFO("KCL: (RPSquirrelRecursion) View distance: %f", view_distance);
+			ROS_INFO("KCL: (RPSquirrelRecursion) Sample size: %d", sample_size);
+			ROS_INFO("KCL: (RPSquirrelRecursion) Safe distance: %f", safe_distance);
+			
+			//view_cone_generator->createViewCones(view_poses, bounding_box, 2, 5, 0.94f, 4.0f, 100, 1.0f);
+			view_cone_generator->createViewCones(view_poses, bounding_box, max_viewcones, occupancy_threshold, fov, view_distance, sample_size, safe_distance);
 			
 			// Add these poses to the knowledge base.
 			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;
