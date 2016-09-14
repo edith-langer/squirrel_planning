@@ -243,7 +243,7 @@ namespace KCL_rosplan {
 		bool success =  (state == actionlib::SimpleClientGoalState::SUCCEEDED);
 		ROS_INFO("KCL: (PerceptionAction) check object finished: %s", state.toString().c_str());
 
-		// update classifiable_from in the knowledge base .
+		// update examined in the knowledge base .
 		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
 		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
 		rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
@@ -258,20 +258,20 @@ namespace KCL_rosplan {
 
 		knowledge_update_service.request.knowledge = knowledge_item;
 		if (!update_knowledge_client.call(knowledge_update_service)) {
-			ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not add the classifiable_from predicate to the knowledge base.");
+			ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not add the examined predicate to the knowledge base.");
 			exit(-1);
 		}
-		ROS_INFO("KCL: (ClassifyObjectPDDLAction) Added %s (classifiable_from %s %s %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", fromID.c_str(), wpID.c_str(), objectID.c_str());
+		ROS_INFO("KCL: (ClassifyObjectPDDLAction) Added %s (examined %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", objectID.c_str());
 	
 		// Remove the opposite option from the knowledge base.
 		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
 		knowledge_item.is_negative = !knowledge_item.is_negative;
 		knowledge_update_service.request.knowledge = knowledge_item;
 		if (!update_knowledge_client.call(knowledge_update_service)) {
-			ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not remove the classifiable_from predicate to the knowledge base.");
+			ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not remove the examined predicate to the knowledge base.");
 			exit(-1);
 		}
-		ROS_INFO("KCL: (ClassifyObjectPDDLAction) Removed %s (classifiable_from %s %s %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", fromID.c_str(), wpID.c_str(), objectID.c_str());
+		ROS_INFO("KCL: (ClassifyObjectPDDLAction) Removed %s (examined %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", objectID.c_str());
 	
 		knowledge_item.values.clear();
 
