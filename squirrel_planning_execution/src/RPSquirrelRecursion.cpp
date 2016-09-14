@@ -606,6 +606,41 @@ namespace KCL_rosplan {
 		node_handle->getParam("/squirrel_interface_recursion/spawn_objects", spawn_objects);
 		node_handle->getParam("/squirrel_interface_recursion/model_file_name", model_file_name);
 		
+		if (!initial_problem_generated)
+		{
+			// add initial state (robot_at)
+			rosplan_knowledge_msgs::KnowledgeItem waypoint_knowledge;
+			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;
+			add_waypoints_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+			waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
+			waypoint_knowledge.instance_type = "waypoint";
+			waypoint_knowledge.instance_name = "kenny_waypoint";
+			add_waypoints_service.request.knowledge = waypoint_knowledge;
+			if (!update_knowledge_client.call(add_waypoints_service)) {
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add an explore wayoint to the knowledge base.");
+				exit(-1);
+			}
+			
+			// Set the location of the robot.
+			waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+			waypoint_knowledge.attribute_name = "robot_at";
+			waypoint_knowledge.is_negative = false;
+			diagnostic_msgs::KeyValue kv;
+			kv.key = "v";
+			kv.value = "kenny";
+			waypoint_knowledge.values.push_back(kv);
+			kv.key = "wp";
+			kv.value = "kenny_waypoint";
+			waypoint_knowledge.values.push_back(kv);
+			add_waypoints_service.request.knowledge = waypoint_knowledge;
+			if (!update_knowledge_client.call(add_waypoints_service)) {
+				ROS_ERROR("KCL: (TidyRooms) Could not add the fact (robot_at kenny room) to the knowledge base.");
+				exit(-1);
+			}
+			ROS_INFO("KCL: (TidyRooms) Added (robot_at kenny room) to the knowledge base.");
+			waypoint_knowledge.values.clear();
+		}
+		
 		// Don't place objects in Gazebo for a sencond time.
 		if (initial_problem_generated || !spawn_objects) return;
 		
@@ -782,38 +817,6 @@ namespace KCL_rosplan {
 				ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (explored %s) to the knowledge base.", ss.str().c_str());
 				++waypoint_number;
 			}
-
-			// add initial state (robot_at)
-			rosplan_knowledge_msgs::KnowledgeItem waypoint_knowledge;
-			add_waypoints_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
-			waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
-			waypoint_knowledge.instance_type = "waypoint";
-			waypoint_knowledge.instance_name = "kenny_waypoint";
-			add_waypoints_service.request.knowledge = waypoint_knowledge;
-			if (!update_knowledge_client.call(add_waypoints_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add an explore wayoint to the knowledge base.");
-				exit(-1);
-			}
-			
-			// Set the location of the robot.
-			waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-			waypoint_knowledge.attribute_name = "robot_at";
-			waypoint_knowledge.is_negative = false;
-			diagnostic_msgs::KeyValue kv;
-			kv.key = "v";
-			kv.value = "kenny";
-			waypoint_knowledge.values.push_back(kv);
-			kv.key = "wp";
-			kv.value = "kenny_waypoint";
-			waypoint_knowledge.values.push_back(kv);
-			add_waypoints_service.request.knowledge = waypoint_knowledge;
-			if (!update_knowledge_client.call(add_waypoints_service)) {
-				ROS_ERROR("KCL: (TidyRooms) Could not add the fact (robot_at kenny room) to the knowledge base.");
-				exit(-1);
-			}
-			ROS_INFO("KCL: (TidyRooms) Added (robot_at kenny room) to the knowledge base.");
-			waypoint_knowledge.values.clear();
-			
 			
 			std_msgs::Int8 nr_waypoint_number_int8;
 			nr_waypoint_number_int8.data = waypoint_number;
@@ -982,7 +985,7 @@ namespace KCL_rosplan {
 					}
 				}
 			}
-			
+			/*
 			// add initial state (robot_at)
 			rosplan_knowledge_msgs::KnowledgeItem waypoint_knowledge;
 			updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
@@ -1013,7 +1016,7 @@ namespace KCL_rosplan {
 			}
 //			ROS_INFO("KCL: (TidyRooms) Added (robot_at kenny room) to the knowledge base.");
 			waypoint_knowledge.values.clear();
-			
+			*/
 			PlanningEnvironment planning_environment;
 			planning_environment.parseDomain(domain_path);
 			planning_environment.update(*node_handle);

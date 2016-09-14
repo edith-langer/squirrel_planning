@@ -228,6 +228,8 @@ namespace KCL_rosplan {
 			ROS_INFO("KCL: (PerceptionAction) aborting action dispatch; malformed parameters");
 			return;
 		}
+		
+		ROS_INFO("KCL: (PerceptionAction) Object id=%s", objectID.c_str());
 
 		// publish feedback (enabled)
 		publishFeedback(msg->action_id,"action enabled");
