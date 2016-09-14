@@ -10,6 +10,7 @@
 #include "std_srvs/Empty.h"
 #include "diagnostic_msgs/KeyValue.h"
 #include <actionlib/client/simple_action_client.h>
+#include <tf/transform_listener.h>
 
 #include "rosplan_dispatch_msgs/PlanAction.h"
 #include "rosplan_dispatch_msgs/ActionDispatch.h"
@@ -52,6 +53,38 @@ namespace KCL_rosplan {
 		
 		geometry_msgs::Point location_;
 		bool is_examined_;
+	};
+	
+	class BoundingBox
+	{
+	public:
+		/**
+		 * Setup the bounding box.
+		 * @param nh ROS Node Handle.
+		 */
+		BoundingBox(ros::NodeHandle& nh);
+		
+		/**
+		 * Check whether @ref{v} is inside this bounding box.
+		 * @param v The point to be checked.
+		 * @return True if @ref{v} falls within the bounding box, false otherwise.
+		 */
+		bool isInside(const tf::Vector3& v) const;
+		
+		/**
+		 * Generate a point that falls within this bounding box.
+		 * @return A point that falls within this bounding box.
+		 */
+		tf::Vector3 createPoint() const;
+		
+		/**
+		 * Get the bounding box points.
+		 */
+		inline const std::vector<tf::Vector3>& getBoundingBox() const { return bounding_box; }
+		
+	private:
+		// Bounding box where all the objects and view cones should be placed.
+		std::vector<tf::Vector3> bounding_box;
 	};
 	
 	void split(const string& s, char delim, std::vector<std::string>& elements)
@@ -117,6 +150,9 @@ namespace KCL_rosplan {
 		
 		// The locations of the toys toy_locationsin this domain.
 		std::vector<ToyState> toy_locations;
+		
+		// Bounding box where all the objects and view cones should be placed.
+		BoundingBox* bounding_box;
 
 	public:
 

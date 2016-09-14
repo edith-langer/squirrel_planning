@@ -23,6 +23,95 @@
 /* The implementation of RPSquirrelRecursion.h */
 namespace KCL_rosplan {
 
+	BoundingBox::BoundingBox(ros::NodeHandle& nh)
+	{
+		ROS_INFO("KCL: (RPSquirrelRecursion) Setup bounding box.");
+		unsigned int bounding_box_param_index = 0;
+		while (true)
+		{
+			std::stringstream bb_name;
+			bb_name << "/squirrel_interface_recursion/viewcone_bounding_box_p";
+			bb_name << bounding_box_param_index;
+			
+			if (!nh.hasParam(bb_name.str()))
+			{
+				ROS_INFO("KCL: (RPSquirrelRecursion) Could not find the parameter %s, bounding box complete.", bb_name.str().c_str());
+				break;
+			}
+			
+			std::string coordinate;
+			nh.getParam(bb_name.str(), coordinate);
+			std::vector<std::string> elements;
+			split(coordinate, ',', elements);
+			
+			if (elements.size() != 3)
+			{
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Misformatted coordinate for bounding box %s. Expected format (x,y,z)", coordinate.c_str());
+				exit (-1);
+			}
+			
+			bounding_box.push_back(tf::Vector3(::atof(elements[0].c_str()), ::atof(elements[1].c_str()), ::atof(elements[2].c_str())));
+			
+			ROS_INFO("KCL: (RPSquirrelRecursion) Found bounding box coordinate (%f, %f, %f)", ::atof(elements[0].c_str()), ::atof(elements[1].c_str()), ::atof(elements[2].c_str()));
+			
+			++bounding_box_param_index;
+		}
+	}
+	
+	bool BoundingBox::isInside(const tf::Vector3& v) const
+	{
+		char sign = 0;
+		for (int i = 0; i < bounding_box.size(); ++i)
+		{
+			const tf::Vector3& v1 = bounding_box[i];
+			const tf::Vector3& v2 = bounding_box[(i + 1) % bounding_box.size()];
+			
+			tf::Vector3 cross_product = (v - v1).cross(v2 - v1);
+			
+			if (sign == 0)
+			{
+				sign = cross_product.z() > 0 ? 1 : -1;
+			}
+			else
+			{
+				if (sign == -1 && cross_product.z() > 0 ||
+				    sign == 1 && cross_product.z() < 0)
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+	
+	tf::Vector3 BoundingBox::createPoint() const
+	{
+		float min_x = std::numeric_limits<float>::max();
+		float max_x = -std::numeric_limits<float>::max();
+		float min_y = std::numeric_limits<float>::max();
+		float max_y = -std::numeric_limits<float>::max();
+		
+		for (std::vector<tf::Vector3>::const_iterator ci = bounding_box.begin(); ci != bounding_box.end(); ++ci)
+		{
+			const tf::Vector3 v = *ci;
+			if (v.x() < min_x) min_x = v.x();
+			if (v.x() > max_x) max_x = v.x();
+			if (v.y() < min_y) min_y = v.y();
+			if (v.y() > max_y) max_y = v.y();
+		}
+		
+		while (true)
+		{
+			// Find a pose.
+			float x = (float)rand() / (float)RAND_MAX * (max_x - min_x) + min_x;
+			float y = (float)rand() / (float)RAND_MAX * (max_y - min_y) + min_y;
+			
+			tf::Vector3 v(x, y, 0);
+			if (isInside(v)) return v;
+		}
+		return tf::Vector3(0, 0, 0);
+	}
+
 	/*-------------*/
 	/* constructor */
 	/*-------------*/
@@ -65,6 +154,8 @@ namespace KCL_rosplan {
 		std::string occupancyTopic("/map");
 		nh.param("occupancy_topic", occupancyTopic, occupancyTopic);
 		view_cone_generator = new ViewConeGenerator(nh, occupancyTopic);
+		
+		bounding_box = new BoundingBox(*node_handle);
 	}
 	
 	bool RPSquirrelRecursion::taskAchieved(const std::string& action_name) 
@@ -112,11 +203,6 @@ namespace KCL_rosplan {
 				}
 			}
 			
-//			if (matching_toy_state == NULL)
-//			{
-//				ROS_INFO("KCL: (RPSquirrelRecursion) Could not find an existing toy close enough.");
-//			}
-			
 			// Check if this waypoint has been examined.
 			rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
 			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
@@ -134,7 +220,7 @@ namespace KCL_rosplan {
 			// Check if any of these facts are true.
 			if (!query_knowledge_client.call(knowledge_query))
 			{
-//				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not call the query knowledge server.");
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not call the query knowledge server.");
 				exit(1);
 			}
 			
@@ -168,7 +254,7 @@ namespace KCL_rosplan {
 			ROS_INFO("KCL: (RPSquirrelRecursion) All objects are classified.");
 			return true;
 		}
-		else if ("explore_area" == action_name && found_unexplored_lumps == number_of_toys)
+		else if ("explore_area" == action_name && found_unexplored_lumps >= number_of_toys)
 		{
 			ROS_INFO("KCL: (RPSquirrelRecursion) We have found enough unidentified lumps to start the examination phase.");
 			return true;
@@ -189,6 +275,25 @@ namespace KCL_rosplan {
 		normalised_action_dispatch.name = action_name;
 		
 		ROS_INFO("KCL: (RPSquirrelRecursion) Action received %s", msg->name.c_str());
+		
+		// Dirty trick to trigger a replan.
+		if ("tidy_area" == action_name)
+		{
+			last_received_msg.clear();
+			
+			// publish feedback (enabled)
+			rosplan_dispatch_msgs::ActionFeedback fb;
+			fb.action_id = msg->action_id;
+			fb.status = "action enabled";
+			action_feedback_pub.publish(fb);
+			
+			// publish feedback (failed)
+			fb.action_id = msg->action_id;
+			fb.status = "action failed";
+			action_feedback_pub.publish(fb);
+			return;
+		}
+		
 		
 		// ignore actions
 		if(//"observe-classifiable_on_attempt" != action_name &&
@@ -359,6 +464,36 @@ namespace KCL_rosplan {
 		std::string data_path;
 		node_handle->getParam("/data_path", data_path);
 		
+		// Remove all previous goals.
+		rosplan_knowledge_msgs::GetAttributeService attribute_service;
+		attribute_service.request.predicate_name = "explored";
+		if (!get_attribute_client.call(attribute_service))
+		{
+			ROS_ERROR("KCL: (RPSquirrelRecursion) Unable to call the attribute service.");
+			exit(-1);
+		}
+		
+		for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = attribute_service.response.attributes.begin(); ci != attribute_service.response.attributes.end(); ++ci)
+		{
+			const rosplan_knowledge_msgs::KnowledgeItem& knowledge_item = *ci;
+			rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+			knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_GOAL;
+			knowledge_update_service.request.knowledge = knowledge_item;
+			if (!update_knowledge_client.call(knowledge_update_service)) {
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the previous goals from the knowledge base.");
+				exit(-1);
+			}
+			
+			std::stringstream ss;
+			ss << "(" << knowledge_item.attribute_name;
+			for (std::vector<diagnostic_msgs::KeyValue>::const_iterator ci = knowledge_item.values.begin(); ci != knowledge_item.values.end(); ++ci)
+			{
+				ss << " " << (*ci).value;
+			}
+			ss << ")";
+			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the goal %s.", ss.str().c_str());
+		}
+		
 		/**
 		 * If no message has been received yet we setup the initial condition.
 		 */
@@ -384,43 +519,18 @@ namespace KCL_rosplan {
 			initial_problem_generated = true;
 			return true;
 		}
-		
+		/*
 		else if (last_received_msg.empty())
 		{
 			ROS_INFO("KCL: (RPSquirrelRecursion) No messages received...");
 			return false;
 		}
-		
+		*/
 		return true;
 	}
 	
 	void RPSquirrelRecursion::generateInitialState()
 	{
-		/*
-		// Remove all previous goals.
-		rosplan_knowledge_msgs::GetAttributeService attribute_service;
-		attribute_service.request.predicate_name.data = "explored";
-		if (!get_attribute_client.call(attribute_service))
-		{
-			ROS_ERROR("KCL: (RPSquirrelRecursion) Unable to call the attribute service.");
-			exit(-1);
-		}
-		
-		for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = attribute_service.response.attributes.begin(); ci != attribute_service.reponse.attributes.end(); ++ci)
-		{
-			const rosplan_knowledge_msgs::KnowledgeItem& 
-			rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
-			rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
-			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::REMOVE_GOAL;
-			knowledge_item.attribute_name = "explored";
-			
-			diagnostic_msgs::KeyValue kv;
-			kv.key = "wp";
-			kv.value = lump_wp_name_ss.str();
-			knowledge_item.values.push_back(kv);
-		}
-		*/
-		
 		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
 		rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
 		
@@ -491,16 +601,9 @@ namespace KCL_rosplan {
 		// Don't place objects in Gazebo for a sencond time.
 		if (initial_problem_generated || !spawn_objects) return;
 		
-		
 		// Place objects in the designated possible boxes.
-		std::vector<std::pair<float, float> > object_placement_bounding_boxes;
-		object_placement_bounding_boxes.push_back(std::make_pair(-1.82, -5.65));
-		object_placement_bounding_boxes.push_back(std::make_pair(5.86, -9.47));
-		object_placement_bounding_boxes.push_back(std::make_pair(-1.6, -2.23));
-		object_placement_bounding_boxes.push_back(std::make_pair(0.617, -4.49));
 		
 		// Read in the model.
-		//std::string model_file_name("/home/bram/.gazebo/models/cardboard_box/model.sdf");
 		std::ifstream model_file(model_file_name.c_str());
 		std::stringstream model_xml_ss;
 		if (model_file.is_open())
@@ -521,18 +624,18 @@ namespace KCL_rosplan {
 		for (int i = 0; i < number_of_toys; ++i)
 		{
 			// Find a pose.
-			int object_placement_bounding_box_index = rand() % (object_placement_bounding_boxes.size() / 2);
-			float min_x = std::min(object_placement_bounding_boxes[object_placement_bounding_box_index * 2].first, 
-			                       object_placement_bounding_boxes[object_placement_bounding_box_index * 2 + 1].first);
-			float max_x = std::max(object_placement_bounding_boxes[object_placement_bounding_box_index * 2].first, 
-			                       object_placement_bounding_boxes[object_placement_bounding_box_index * 2 + 1].first);
-			float min_y = std::min(object_placement_bounding_boxes[object_placement_bounding_box_index * 2].second, 
-			                       object_placement_bounding_boxes[object_placement_bounding_box_index * 2 + 1].second);
-			float max_y = std::max(object_placement_bounding_boxes[object_placement_bounding_box_index * 2].second, 
-			                       object_placement_bounding_boxes[object_placement_bounding_box_index * 2 + 1].second);
+			tf::Vector3 toy_location;
 			
-			float delta_x = (float)rand() / (float)RAND_MAX;
-			float delta_y = (float)rand() / (float)RAND_MAX;
+			bool valid_location = false;
+			while (!valid_location)
+			{
+				toy_location = bounding_box->createPoint();
+				geometry_msgs::Point p;
+				p.x = toy_location.x();
+				p.y = toy_location.y();
+				p.z = 0;
+				valid_location = !view_cone_generator->isBlocked(p, 1.0f);
+			}
 			
 			geometry_msgs::Pose model_pose;
 			model_pose.orientation.x = 0;
@@ -540,8 +643,8 @@ namespace KCL_rosplan {
 			model_pose.orientation.z = 0;
 			model_pose.orientation.w = 1;
 			
-			model_pose.position.x = (max_x - min_x) * delta_x + min_x;
-			model_pose.position.y = (max_y - min_y) * delta_y + min_y;
+			model_pose.position.x = toy_location.x();
+			model_pose.position.y = toy_location.y();
 			model_pose.position.z = 0.01f;
 			
 			std::stringstream ss_object_name;
@@ -600,45 +703,7 @@ namespace KCL_rosplan {
 			std::vector<std_msgs::ColorRGBA> triangle_colours;
 
 			std::vector<geometry_msgs::Pose> view_poses;
-			std::vector<tf::Vector3> bounding_box;
-			
-			unsigned int bounding_box_param_index = 0;
-			while (true)
-			{
-				std::stringstream bb_name;
-				bb_name << "/squirrel_interface_recursion/viewcone_bounding_box_p";
-				bb_name << bounding_box_param_index;
-				
-				if (!node_handle->hasParam(bb_name.str()))
-				{
-					ROS_INFO("KCL: (RPSquirrelRecursion) Could not find the parameter %s, bounding box complete.", bb_name.str().c_str());
-					break;
-				}
-				
-				std::string coordinate;
-				node_handle->getParam(bb_name.str(), coordinate);
-				std::vector<std::string> elements;
-				split(coordinate, ',', elements);
-				
-				if (elements.size() != 3)
-				{
-					ROS_ERROR("KCL: (RPSquirrelRecursion) Misformatted coordinate for bounding box %s. Expected format (x,y,z)", coordinate.c_str());
-					exit (-1);
-				}
-				
-				bounding_box.push_back(tf::Vector3(::atof(elements[0].c_str()), ::atof(elements[1].c_str()), ::atof(elements[2].c_str())));
-				
-				ROS_INFO("KCL: (RPSquirrelRecursion) Found bounding box coordinate (%f, %f, %f)", ::atof(elements[0].c_str()), ::atof(elements[1].c_str()), ::atof(elements[2].c_str()));
-				
-				++bounding_box_param_index;
-			}
-			
-			
-			//bounding_box.push_back(tf::Vector3(-2.0, 0.9, 0.0));
-			//bounding_box.push_back(tf::Vector3(-2.0, -9.54, 0.0));
-			//bounding_box.push_back(tf::Vector3(6.05, -9.54, 0.0));
-			//bounding_box.push_back(tf::Vector3(6.05, 0.9, 0.0));
-			
+
 			int max_viewcones = 2;
 			int occupancy_threshold = 5;
 			float fov = 0.8f;
@@ -661,8 +726,7 @@ namespace KCL_rosplan {
 			ROS_INFO("KCL: (RPSquirrelRecursion) Sample size: %d", sample_size);
 			ROS_INFO("KCL: (RPSquirrelRecursion) Safe distance: %f", safe_distance);
 			
-			//view_cone_generator->createViewCones(view_poses, bounding_box, 2, 5, 0.94f, 4.0f, 100, 1.0f);
-			view_cone_generator->createViewCones(view_poses, bounding_box, max_viewcones, occupancy_threshold, fov, view_distance, sample_size, safe_distance);
+			view_cone_generator->createViewCones(view_poses, bounding_box->getBoundingBox(), max_viewcones, occupancy_threshold, fov, view_distance, sample_size, safe_distance);
 			
 			// Add these poses to the knowledge base.
 			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;
@@ -987,18 +1051,6 @@ namespace KCL_rosplan {
 		// send goal
 		plan_action_client.sendGoal(psrv);
 		ROS_INFO("KCL: (RPSquirrelRecursion) Goal sent");
-
-		/*
-		ros::ServiceClient run_planner_client = nh.serviceClient<rosplan_dispatch_msgs::PlanGoal>("/kcl_rosplan/planning_server");
-		if (!run_planner_client.call(psrv))
-		{
-			ROS_ERROR("KCL: (TidyRoom) Failed to run the planning system.");
-			exit(-1);
-		}
-		ROS_INFO("KCL: (TidyRoom) Planning system returned.");
-		// Start the service ROSPlan will call when a domain and problem file needs to be generated.
-		//ros::ServiceServer pddl_generation_service = nh.advertiseService("/kcl_rosplan/generate_planning_problem", &KCL_rosplan::RPSquirrelRecursion::generatePDDLProblemFile, &rpsr);
-		*/
 
 		ros::spin();
 		return 0;

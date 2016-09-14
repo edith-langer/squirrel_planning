@@ -49,7 +49,7 @@
 	<node name="squirrel_interface_hri" pkg="squirrel_interface_hri" type="rppointingServer" respawn="false" output="screen"></node>
 
 	<node name="squirrel_interface_perception" pkg="squirrel_interface_perception" type="rpperceptionServer" respawn="false" output="screen">
-		<!-- set "true" if you wantto fake object perception completely -->
+		<!-- set "true" if you want to fake object perception completely -->
 		<param name="simulate_perception" type="bool" value="false" />
 	</node>
 

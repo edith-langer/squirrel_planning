@@ -139,7 +139,7 @@ namespace KCL_rosplan {
 		}
 
 		// NOTE: Only for the sorting game.
-		objectID = "object1";
+		//objectID = "object1";
 
 		// publish feedback (enabled)
 		publishFeedback(msg->action_id,"action enabled");
