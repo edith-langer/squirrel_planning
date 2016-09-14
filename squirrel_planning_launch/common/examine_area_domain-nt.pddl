@@ -12,7 +12,7 @@
 	(examined ?o - object)
 ;;	(explored ?wp - waypoint)
 	(robot_at ?v - robot ?wp - waypoint)
-	(observable_from ?o - object ?wp- waypoint)
+	(observable_from ?o - object ?wp - waypoint)
 )
 
 ;; Use perception actions to search for objects at the current waypoint
@@ -23,7 +23,7 @@
 		(observable_from ?o ?wp)
 	)
 	:effect (and
-		(examined ?wp)
+		(examined ?o)
 	)
 )
 

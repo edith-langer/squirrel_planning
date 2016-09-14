@@ -913,9 +913,9 @@ namespace KCL_rosplan {
 						pose.pose = getTaskPose.response.poses[i].pose.pose;
 						
 						// Check if this location is suitable.
-						if (view_cone_generator->isBlocked(pose.pose.position, 0.45f))
+						if (view_cone_generator->isBlocked(pose.pose.position, 0.4f))
 						{
-//							ROS_INFO("KCL: (RPSquirrelRecursion) Ignore: (%f, %f, %f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
+							ROS_INFO("KCL: (RPSquirrelRecursion) Ignore: (%f, %f, %f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
 							continue;
 						}
 						
