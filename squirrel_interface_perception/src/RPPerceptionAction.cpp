@@ -55,7 +55,7 @@ namespace KCL_rosplan {
 			else
 				exploreActionStatic(msg);
 		}
-		//if(0==msg->name.compare("observe-classifiable_from")) examineAction(msg);
+		if(0==msg->name.compare("observe-classifiable_from")) examineAction(msg);
 		//if(0==msg->name.compare("explore_waypoint")) examineAction(msg);
 	}
 
@@ -208,7 +208,7 @@ namespace KCL_rosplan {
 	/*
 	 * examine action dispatch callback;
 	 * parameters (?from ?view - waypoint ?o - object ?v - robot  ?l ?l2 - level ?kb - knowledgebase)
-	 *
+	 */
 	void RPPerceptionAction::examineAction(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
 
 		ROS_INFO("KCL: (PerceptionAction) explore action recieved");
@@ -314,7 +314,7 @@ namespace KCL_rosplan {
 			publishFeedback(msg->action_id, "action failed");
 		}
 	}
-*/
+
 	void RPPerceptionAction::publishFeedback(int action_id, std::string feedback) {
 		// publish feedback
 		rosplan_dispatch_msgs::ActionFeedback fb;

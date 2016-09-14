@@ -374,6 +374,15 @@ namespace KCL_rosplan {
 		if(state == actionlib::SimpleClientGoalState::SUCCEEDED || completed_task)
 		{
 			// First of all check if enough lumps were found, or if enough objects were classified.
+			if (!taskAchieved(action_name))
+			{
+				last_received_msg.clear();
+				
+				// Trigger a replan.
+				fb.action_id = msg->action_id;
+				fb.status = "action failed";
+				action_feedback_pub.publish(fb);
+			}
 			
 			// Update the knowledge base with what has been achieved.
 			if ("explore_area" == action_name)
@@ -434,7 +443,6 @@ namespace KCL_rosplan {
 			}
 			
 			// publish feedback (achieved)
-			rosplan_dispatch_msgs::ActionFeedback fb;
 			fb.action_id = msg->action_id;
 			fb.status = "action achieved";
 			action_feedback_pub.publish(fb);

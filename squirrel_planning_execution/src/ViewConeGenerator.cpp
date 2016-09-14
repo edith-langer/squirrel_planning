@@ -463,7 +463,8 @@ bool ViewConeGenerator::isBlocked(const geometry_msgs::Point& point, float min_d
 	{
 		for (float y = -min_distance - last_received_occupancy_grid_msgs_.info.resolution; y < min_distance + last_received_occupancy_grid_msgs_.info.resolution; y += last_received_occupancy_grid_msgs_.info.resolution)
 		{
-			if (sqrt((x - point.x) * (x - point.x) + (y - point.y) * (y - point.y)) > min_distance)
+			//if (sqrt((x - point.x) * (x - point.x) + (y - point.y) * (y - point.y)) > min_distance)
+			if (sqrt(x*x + y*y) > min_distance)
 			{
 				continue;
 			}
