@@ -49,8 +49,8 @@ namespace KCL_rosplan {
 		
 		pddl_generation_service = nh.advertiseService("/kcl_rosplan/generate_planning_problem", &KCL_rosplan::RPSquirrelRecursion::generatePDDLProblemFile, this);
 
-		nh.getParam("/stop_when_enough_lumps_found", stop_when_enough_lumps_found);
-		nh.getParam("/number_of_toys", number_of_toys);
+		nh.getParam("/squirrel_interface_recursion/stop_when_enough_lumps_found", stop_when_enough_lumps_found);
+		nh.getParam("/squirrel_interface_recursion/number_of_toys", number_of_toys);
 		
 		ROS_INFO("KCL: (RPSquirrelRecursion) Number of toys to find %d.", number_of_toys);
 		if (stop_when_enough_lumps_found)
@@ -74,6 +74,8 @@ namespace KCL_rosplan {
 
 		std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > sceneObjects_results;
 		message_store.query<squirrel_object_perception_msgs::SceneObject>(sceneObjects_results);
+
+		//ROS_INFO("KCL: (RPSquirrelRecursion) Check if the task if achieved for the action %s.", action_name.c_str());
 		
 		unsigned int found_unexplored_lumps = 0;
 		
@@ -85,7 +87,7 @@ namespace KCL_rosplan {
 			std::stringstream lump_wp_name_ss;
 			lump_wp_name_ss << lump_name << "_observation_wp";
 			
-			ROS_INFO("KCL: (RPSquirrelRecursion) Check if the lump waypoint %s has been explored.", lump_wp_name_ss.str().c_str());
+//			ROS_INFO("KCL: (RPSquirrelRecursion) Check if the lump waypoint %s has been explored.", lump_wp_name_ss.str().c_str());
 			
 			// Check if: 1) This waypoint has been observed; and 2) The lump is near an actual object.
 			const geometry_msgs::Pose& pose = lump.pose;
@@ -101,7 +103,7 @@ namespace KCL_rosplan {
 				delta.z =  pose.position.z - toy_location.z;
 				float distance = sqrt(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 				
-				ROS_INFO("KCL: (RPSquirrelRecursion) The lump is at (%f, %f, %f), existing toy is at (%f, %f, %f). Distance = %f.", pose.position.x, pose.position.y, pose.position.z, toy_location.x, toy_location.y, toy_location.z, distance);
+//				ROS_INFO("KCL: (RPSquirrelRecursion) The lump is at (%f, %f, %f), existing toy is at (%f, %f, %f). Distance = %f.", pose.position.x, pose.position.y, pose.position.z, toy_location.x, toy_location.y, toy_location.z, distance);
 				
 				if (distance < 0.5f)
 				{
@@ -110,10 +112,10 @@ namespace KCL_rosplan {
 				}
 			}
 			
-			if (matching_toy_state == NULL)
-			{
-				ROS_INFO("KCL: (RPSquirrelRecursion) Could not find an existing toy close enough.");
-			}
+//			if (matching_toy_state == NULL)
+//			{
+//				ROS_INFO("KCL: (RPSquirrelRecursion) Could not find an existing toy close enough.");
+//			}
 			
 			// Check if this waypoint has been examined.
 			rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
@@ -132,22 +134,22 @@ namespace KCL_rosplan {
 			// Check if any of these facts are true.
 			if (!query_knowledge_client.call(knowledge_query))
 			{
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not call the query knowledge server.");
+//				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not call the query knowledge server.");
 				exit(1);
 			}
 			
-			if (knowledge_query.response.all_true && matching_toy_state != NULL)
+			if (knowledge_query.response.all_true && matching_toy_state != NULL && !matching_toy_state->is_examined_)
 			{
 				matching_toy_state->is_examined_ = true;
 				ROS_INFO("KCL: (RPSquirrelRecursion) The waypoint: %s has been explored and corresponds to the toy's location.", lump_wp_name_ss.str().c_str());
 			}
 			else if (knowledge_query.response.all_true)
 			{
-				ROS_INFO("KCL: (RPSquirrelRecursion) The waypoint: %s has been explored, but does not correspond to a toy's location.", lump_wp_name_ss.str().c_str());
+//				ROS_INFO("KCL: (RPSquirrelRecursion) The waypoint: %s has been explored, but does not correspond to a toy's location.", lump_wp_name_ss.str().c_str());
 			}
 			else
 			{
-				ROS_INFO("KCL: (RPSquirrelRecursion) The waypoint: %s has not been explored, yet.", lump_wp_name_ss.str().c_str());
+//				ROS_INFO("KCL: (RPSquirrelRecursion) The waypoint: %s has not been explored, yet.", lump_wp_name_ss.str().c_str());
 				++found_unexplored_lumps;
 			}
 		}
@@ -171,7 +173,7 @@ namespace KCL_rosplan {
 			ROS_INFO("KCL: (RPSquirrelRecursion) We have found enough unidentified lumps to start the examination phase.");
 			return true;
 		}
-		ROS_INFO("KCL: (RPSquirrelRecursion) We have classified %d objects.", classified_objects);
+		//ROS_INFO("KCL: (RPSquirrelRecursion) We have classified %d objects.", classified_objects);
 		return false;
 	}
 	
@@ -180,25 +182,7 @@ namespace KCL_rosplan {
 	/*---------------------------*/
 
 	void RPSquirrelRecursion::dispatchCallback(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
-
-		// Check if we have found enough objects.
-		if (stop_when_enough_lumps_found)
-		{
-			// Count the number of objects we have found.
-			squirrel_object_perception_msgs::SceneObject lump;
-
-			std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > sceneObjects_results;
-			message_store.query<squirrel_object_perception_msgs::SceneObject>(sceneObjects_results);
-
-			ROS_INFO("KCL: (RPSquirrelRecursion) Number of objects found: %zu", sceneObjects_results.size());
-
-			if (sceneObjects_results.size() >= number_of_toys)
-			{
-				ROS_INFO("******************* KCL: (RPSquirrelRecursion) We have enough objects in the domain.");
-				//exit(-1);
-			}
-		}
-		
+	
 		rosplan_dispatch_msgs::ActionDispatch normalised_action_dispatch = *msg;
 		std::string action_name = msg->name;
 		std::transform(action_name.begin(), action_name.end(), action_name.begin(), tolower);
@@ -258,14 +242,17 @@ namespace KCL_rosplan {
 
 		// wait for action to finish
 		ros::Rate loop_rate(1);
+		bool completed_task = false;
 		while (ros::ok() && (planner_instance.getState() == actionlib::SimpleClientGoalState::ACTIVE || planner_instance.getState() == actionlib::SimpleClientGoalState::PENDING)) {
 			ros::spinOnce();
 			loop_rate.sleep();
 			
 			if (taskAchieved(action_name))
 			{
+				completed_task = true;
 				if ("explore_area" == action_name)
 				{
+					planner_instance.stopPlanner();
 					break;
 				}
 				else if ("examine_area" == action_name)
@@ -279,7 +266,7 @@ namespace KCL_rosplan {
 		actionlib::SimpleClientGoalState state = planner_instance.getState();
 		ROS_INFO("KCL: (RPSquirrelRecursion) action finished: %s, %s", action_name.c_str(), state.toString().c_str());
 
-		if(state == actionlib::SimpleClientGoalState::SUCCEEDED)
+		if(state == actionlib::SimpleClientGoalState::SUCCEEDED || completed_task)
 		{
 			// First of all check if enough lumps were found, or if enough objects were classified.
 			
@@ -375,7 +362,7 @@ namespace KCL_rosplan {
 		/**
 		 * If no message has been received yet we setup the initial condition.
 		 */
-		if (last_received_msg.empty())// && !initial_problem_generated) {
+		if (last_received_msg.empty())
 		{
 			ROS_INFO("KCL: (RPSquirrelRecursion) Create the initial problem.");
 			
@@ -383,7 +370,11 @@ namespace KCL_rosplan {
 			domain_ss << data_path << "tidy_room_domain-nt.pddl";
 			std::string domain_name = domain_ss.str();
 			
-			generateInitialState();
+			if (!initial_problem_generated)
+			{
+				generateInitialState();
+			}
+			
 			PlanningEnvironment planning_environment;
 			planning_environment.parseDomain(domain_name);
 			planning_environment.update(*node_handle);
@@ -405,10 +396,36 @@ namespace KCL_rosplan {
 	
 	void RPSquirrelRecursion::generateInitialState()
 	{
-		// Add kenny
+		/*
+		// Remove all previous goals.
+		rosplan_knowledge_msgs::GetAttributeService attribute_service;
+		attribute_service.request.predicate_name.data = "explored";
+		if (!get_attribute_client.call(attribute_service))
+		{
+			ROS_ERROR("KCL: (RPSquirrelRecursion) Unable to call the attribute service.");
+			exit(-1);
+		}
+		
+		for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = attribute_service.response.attributes.begin(); ci != attribute_service.reponse.attributes.end(); ++ci)
+		{
+			const rosplan_knowledge_msgs::KnowledgeItem& 
+			rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+			rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
+			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::REMOVE_GOAL;
+			knowledge_item.attribute_name = "explored";
+			
+			diagnostic_msgs::KeyValue kv;
+			kv.key = "wp";
+			kv.value = lump_wp_name_ss.str();
+			knowledge_item.values.push_back(kv);
+		}
+		*/
+		
 		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
-		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
 		rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
+		
+		// Add kenny
+		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
 		knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
 		knowledge_item.instance_type = "robot";
 		knowledge_item.instance_name = "kenny";
@@ -464,6 +481,16 @@ namespace KCL_rosplan {
 			exit(-1);
 		}
 		ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (tidy room) to the knowledge base.");
+
+		
+		bool spawn_objects = false;
+		std::string model_file_name;
+		node_handle->getParam("/squirrel_interface_recursion/spawn_objects", spawn_objects);
+		node_handle->getParam("/squirrel_interface_recursion/model_file_name", model_file_name);
+		
+		// Don't place objects in Gazebo for a sencond time.
+		if (initial_problem_generated || !spawn_objects) return;
+		
 		
 		// Place objects in the designated possible boxes.
 		std::vector<std::pair<float, float> > object_placement_bounding_boxes;
@@ -473,7 +500,7 @@ namespace KCL_rosplan {
 		object_placement_bounding_boxes.push_back(std::make_pair(0.617, -4.49));
 		
 		// Read in the model.
-		std::string model_file_name("/home/bram/.gazebo/models/cardboard_box/model.sdf");
+		//std::string model_file_name("/home/bram/.gazebo/models/cardboard_box/model.sdf");
 		std::ifstream model_file(model_file_name.c_str());
 		std::stringstream model_xml_ss;
 		if (model_file.is_open())
@@ -740,7 +767,7 @@ namespace KCL_rosplan {
 	
 					std_msgs::Int8 debug_pose_number;
 					debug_pose_number.data = getTaskPose.response.poses.size();
-					ROS_INFO("KCL: (RPSquirrelRecursion) Found %d observation poses", debug_pose_number.data);
+//					ROS_INFO("KCL: (RPSquirrelRecursion) Found %d observation poses", debug_pose_number.data);
 
 					// Add all the waypoints to the knowledge base.
 					std::stringstream ss;
@@ -759,15 +786,15 @@ namespace KCL_rosplan {
 						// Check if this location is suitable.
 						if (view_cone_generator->isBlocked(pose.pose.position, 0.45f))
 						{
-							ROS_INFO("KCL: (RPSquirrelRecursion) Ignore: (%f, %f, %f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
+//							ROS_INFO("KCL: (RPSquirrelRecursion) Ignore: (%f, %f, %f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
 							continue;
 						}
 						
 						std::string id(message_store.insertNamed(ss.str(), pose));
 					
-						ROS_INFO("KCL: (RPSquirrelRecursion) Process observation pose: %s", ss.str().c_str());
+//						ROS_INFO("KCL: (RPSquirrelRecursion) Process observation pose: %s", ss.str().c_str());
 					
-						std::cout << "KCL: (RPSquirrelRecursion) Lump location: (" << obj.pose.position.x << ", " << obj.pose.position.y << ", " << obj.pose.position.z << "); Observation location: (" << pose.pose.position.x << ", " << pose.pose.position.y << ", " << pose.pose.position.z << ")" << std::endl;
+//						std::cout << "KCL: (RPSquirrelRecursion) Lump location: (" << obj.pose.position.x << ", " << obj.pose.position.y << ", " << obj.pose.position.z << "); Observation location: (" << pose.pose.position.x << ", " << pose.pose.position.y << ", " << pose.pose.position.z << ")" << std::endl;
 						
 						rosplan_knowledge_msgs::KnowledgeUpdateService updateSrv;
 						updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
@@ -794,7 +821,7 @@ namespace KCL_rosplan {
 							ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the goal (explored %s) to the knowledge base.", ss.str().c_str());
 							exit(-1);
 						}
-						ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (explored %s) to the knowledge base.", ss.str().c_str());
+//						ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (explored %s) to the knowledge base.", ss.str().c_str());
 						
 						// only consider a single waypoint.
 						break;
@@ -830,7 +857,7 @@ namespace KCL_rosplan {
 				ROS_ERROR("KCL: (TidyRooms) Could not add the fact (robot_at kenny room) to the knowledge base.");
 				exit(-1);
 			}
-			ROS_INFO("KCL: (TidyRooms) Added (robot_at kenny room) to the knowledge base.");
+//			ROS_INFO("KCL: (TidyRooms) Added (robot_at kenny room) to the knowledge base.");
 			waypoint_knowledge.values.clear();
 			
 			PlanningEnvironment planning_environment;

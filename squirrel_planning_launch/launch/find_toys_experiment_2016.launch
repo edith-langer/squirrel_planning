@@ -1,0 +1,98 @@
+<launch>
+	<!-- domain file -->
+	<param name="data_path" value="$(find squirrel_planning_launch)/common/" />
+	<param name="planner_path" value="$(find rosplan_planning_system)/common/bin/" />
+
+	<!-- domain file -->
+	<param name="/rosplan/domain_path" value="$(find squirrel_planning_launch)/common/tidy_room_domain-nt.pddl" />
+
+
+	<!-- knowledge base -->
+	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen">
+	</node>
+
+	<!-- scene database (MongoDB) -->
+	<node name="rosplan_scene_database" pkg="mongodb_store" type="mongodb_server.py" respawn="false" output="log">
+	    <param name="database_path" value="$(find rosplan_knowledge_base)/common/mongoDB" />
+	</node>
+	<node name="rosplan_scene_message_store" pkg="mongodb_store" type="message_store_node.py" respawn="false" output="log">
+	</node>
+
+	<!-- planning system -->
+	<node name="rosplan_planning_system" pkg="rosplan_planning_system" type="planner" respawn="false" output="screen">
+		<!-- directory for generated files -->
+	    <param name="data_path" value="$(find squirrel_planning_launch)/common/" />
+	    <param name="problem_path" value="$(find squirrel_planning_launch)/common/problem.pddl" />
+            <param name="strl_file_path" value="$(find squirrel_planning_launch)/common/plan.strl" />
+		<!-- to run the planner -->
+	    <param name="planner_command" value="timeout 10 $(find rosplan_planning_system)/common/bin/popf -n" />
+            <param name="generate_default_problem" value="false" />
+	</node>
+
+	<!-- standard ROS interfaces -->
+	<node name="rosplan_interface_movebase" pkg="rosplan_interface_movebase" type="rpmovebase" respawn="false" output="screen">
+		<param name="action_server" value="/move_base" />
+		<param name="pddl_action_name" value="goto_waypoint" />
+	</node>
+
+	<node name="rosplan_interface_mapping" pkg="rosplan_interface_mapping" type="rproadmapServer" respawn="false" output="screen">
+	    <param name="data_path" value="$(find squirrel_planning_launch)/common/" />
+	    <param name="cost_map_topic" value="/move_base/global_costmap/costmap" />
+	    <param name="cost_map_update_topic" value="/move_base/global_costmap/costmap_updates" />
+	    <param name="odom_topic" value="/odom" />
+	    <param name="use_static_map" value="false" />
+	    <param name="static_map_service" value="/static_map" />
+	</node>
+
+	<!-- SQUIRREL interfaces -->
+	<node name="squirrel_object_server" pkg="squirrel_interface_perception" type="rpObjectPerception" respawn="false" output="screen"></node>
+	<node name="squirrel_interface_hri" pkg="squirrel_interface_hri" type="rppointingServer" respawn="false" output="screen"></node>
+
+	<node name="squirrel_interface_perception" pkg="squirrel_interface_perception" type="rpperceptionServer" respawn="false" output="screen">
+		<!-- set "true" if you wantto fake object perception completely -->
+		<param name="simulate_perception" type="bool" value="false" />
+	</node>
+
+	<node name="squirrel_interface_manipulation" pkg="squirrel_interface_manipulation" type="rppushServer" respawn="false" output="screen">
+		<!-- set "true" if you want to simply move instead of pushing -->
+		<param name="simulate_pushing" type="bool" value="false" />
+		<param name="push_action_server" value="/push" />
+		<param name="smash_action_server" value="/smash" />
+	</node>
+
+	<!-- simulation acitons (ALL TRUE) -->
+	<node name="simulated_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen">
+		<param name="query_user" value="false" />
+		<param name="simulate_goto_waypoint" value="false"/>
+		<param name="simulate_explore_waypoint" value="false"/>
+		<param name="simulate_clear_object" value="true"/>
+		<param name="simulate_classify_object" value="true"/>
+		<param name="simulate_put_object_in_box" value="true"/>
+		<param name="simulate_pickup_object" value="true"/>
+		<param name="simulate_drop_object" value="true"/>
+	</node>
+
+	<node name="squirrel_interface_mapping" pkg="squirrel_planning_execution" type="rpsquirrelRoadmap" respawn="false" output="screen">
+	    <param name="data_path" value="$(find squirrel_planning_launch)/common/" />
+	    <param name="cost_map_topic" value="/move_base/global_costmap/costmap" />
+	    <param name="cost_map_update_topic" value="/move_base/global_costmap/costmap_updates" />
+	    <param name="use_static_map" value="false" type="bool" />
+	    <param name="static_map_service" value="/static_map" />
+	    <param name="occupancy_threshold" value="20" />
+	    <param name="manipulation_service_topic" value="/squirrel_manipulation/waypoint_request" />
+	</node>
+
+	<node name="squirrel_interface_recursion" pkg="squirrel_planning_execution" type="rpsquirrelRecursion" respawn="false" output="screen">
+	    <param name="occupancy_topic" value="/squirrel_nav/occupancy_map" />
+	    <!-- stop condition -->
+	    <param name="number_of_toys" value="2" />
+            <param name="stop_when_enough_lumps_found" value="true" type="bool" />
+            <param name="spawn_objects" value="true" type="bool" />
+            <param name="model_file_name" value="/home/bram/.gazebo/models/cardboard_box/model.sdf" />
+	</node>
+
+	<node name="squirrel_perception_waypoints_server" pkg="squirrel_perception_waypoint" type="squirrel_perception_waypoints_server" required="true">
+
+	</node>
+
+</launch>
