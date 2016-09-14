@@ -203,14 +203,14 @@ namespace KCL_rosplan {
 				}
 			}
 			
-			// Check if this waypoint has been examined.
+			// Check if this object has been examined.
 			rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
 			knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-			knowledge_item.attribute_name = "explored";
+			knowledge_item.attribute_name = "examined";
 			
 			diagnostic_msgs::KeyValue kv;
-			kv.key = "wp";
-			kv.value = lump_wp_name_ss.str();
+			kv.key = "o";
+			kv.value = lump_name;
 			knowledge_item.values.push_back(kv);
 			
 			// Query the knowledge base.
@@ -901,6 +901,7 @@ namespace KCL_rosplan {
 					// Add all the waypoints to the knowledge base.
 					std::stringstream ss;
 					std::vector<std::string> observation_location_predicates;
+					bool found_suitable_observation_location = false;
 					for(int i=0;i<getTaskPose.response.poses.size(); i++) {
 					
 						ss.str(std::string());
@@ -953,7 +954,13 @@ namespace KCL_rosplan {
 //						ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (explored %s) to the knowledge base.", ss.str().c_str());
 						
 						// only consider a single waypoint.
+						found_suitable_observation_location = true;
 						break;
+					}
+					
+					if (!found_suitable_observation_location)
+					{
+						ROS_ERROR("KCL: (RPSquirrelRecursion) Could not find a suitable observation location for %s.", object_predicate.c_str());
 					}
 				}
 			}

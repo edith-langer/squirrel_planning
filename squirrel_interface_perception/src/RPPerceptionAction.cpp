@@ -55,7 +55,7 @@ namespace KCL_rosplan {
 			else
 				exploreActionStatic(msg);
 		}
-		if(0==msg->name.compare("observe-classifiable_from")) examineAction(msg);
+		if(0==msg->name.compare("examine_object")) examineAction(msg);
 		//if(0==msg->name.compare("explore_waypoint")) examineAction(msg);
 	}
 
@@ -207,20 +207,18 @@ namespace KCL_rosplan {
 
 	/*
 	 * examine action dispatch callback;
-	 * parameters (?from ?view - waypoint ?o - object ?v - robot  ?l ?l2 - level ?kb - knowledgebase)
+	 * parameters (?wp - waypoint ?o - object ?v - robot)
 	 */
 	void RPPerceptionAction::examineAction(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
 
 		ROS_INFO("KCL: (PerceptionAction) explore action recieved");
 
 		// get waypoint ID from action dispatch
-		std::string objectID, wpID, fromID;
+		std::string objectID, wpID;
 		bool foundObject = false;
 		for(size_t i=0; i<msg->parameters.size(); i++) {
-			if(0==msg->parameters[i].key.compare("view"))
+			if(0==msg->parameters[i].key.compare("wp"))
 				wpID = msg->parameters[i].value;
-			if(0==msg->parameters[i].key.compare("from"))
-				fromID = msg->parameters[i].value;
 			if(0==msg->parameters[i].key.compare("o")) {
 				objectID = msg->parameters[i].value;
 				foundObject = true;
@@ -230,9 +228,6 @@ namespace KCL_rosplan {
 			ROS_INFO("KCL: (PerceptionAction) aborting action dispatch; malformed parameters");
 			return;
 		}
-
-		// NOTE: Only for the sorting game.
-		//objectID = "object1";
 
 		// publish feedback (enabled)
 		publishFeedback(msg->action_id,"action enabled");
@@ -253,18 +248,10 @@ namespace KCL_rosplan {
 		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
 		rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
 		knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-		knowledge_item.attribute_name = "classifiable_from";
+		knowledge_item.attribute_name = "examined";
 		knowledge_item.is_negative = !success;
 
 		diagnostic_msgs::KeyValue kv;
-		kv.key = "from";
-		kv.value = fromID;
-		knowledge_item.values.push_back(kv);
-	
-		kv.key = "view";
-		kv.value = wpID;
-		knowledge_item.values.push_back(kv);
-	
 		kv.key = "o";
 		kv.value = objectID;
 		knowledge_item.values.push_back(kv);
@@ -303,9 +290,7 @@ namespace KCL_rosplan {
 				squirrel_object_perception_msgs::SceneObject so = (*ci);
 				updateObject(so, wpID);
 			}
-
-
-
+			
 			// publish feedback
 			ROS_INFO("KCL: (PerceptionAction) action complete");
 			publishFeedback(msg->action_id, "action achieved");
