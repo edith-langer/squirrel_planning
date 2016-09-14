@@ -51,6 +51,7 @@
 	<node name="squirrel_interface_perception" pkg="squirrel_interface_perception" type="rpperceptionServer" respawn="false" output="screen">
 		<!-- set "true" if you want to fake object perception completely -->
 		<param name="simulate_perception" type="bool" value="false" />
+		<param name="use_dynamic_object_finding" type="bool" value="false" />
 	</node>
 
 	<node name="squirrel_interface_manipulation" pkg="squirrel_interface_manipulation" type="rppushServer" respawn="false" output="screen">

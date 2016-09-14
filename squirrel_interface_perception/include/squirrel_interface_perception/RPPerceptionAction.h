@@ -33,11 +33,14 @@ namespace KCL_rosplan {
 		ros::Publisher action_feedback_pub;
 
 		std::map<std::string,std::string> db_name_map;
+		
+		bool use_dynamic_object_finding;
 
 		void publishFeedback(int action_id, std::string feedback);
 
 		/* actions */
-		void exploreAction(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg);
+		void exploreActionDynamic(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg);
+		void exploreActionStatic(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg);
 		void examineAction(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg);
 
 		/* objects to database */

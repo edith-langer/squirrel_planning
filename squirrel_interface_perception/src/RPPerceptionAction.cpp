@@ -22,8 +22,18 @@ namespace KCL_rosplan {
 
 	/* constructor */
 	RPPerceptionAction::RPPerceptionAction(ros::NodeHandle &nh, std::string &actionserver)
-	 : message_store(nh), examine_action_client(actionserver, true) {
+	 : message_store(nh), examine_action_client(actionserver, true), use_dynamic_object_finding(true) {
 
+		if (nh.hasParam("use_dynamic_object_finding"))
+		{
+			nh.param("use_dynamic_object_finding", use_dynamic_object_finding); 
+		}
+		
+		if (use_dynamic_object_finding)
+			ROS_INFO("KCL: (PerceptionAction) Find objects using dynamic object finding.");
+		else
+			ROS_INFO("KCL: (PerceptionAction) Find objects using static object finding.");
+		
 		// create the action clients
 		ROS_INFO("KCL: (PerceptionAction) waiting for action server to start on %s", actionserver.c_str());
 		examine_action_client.waitForServer();
@@ -37,14 +47,21 @@ namespace KCL_rosplan {
 	/* action dispatch callback; parameters (?v - robot ?wp - waypoint) */
 	void RPPerceptionAction::dispatchCallback(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
 
-		// ignore non-perception actions
-		if(0==msg->name.compare("explore_waypoint")) exploreAction(msg);
-		if(0==msg->name.compare("observe-classifiable_from")) examineAction(msg);
+		// ignore non-perception action.
+		if(0==msg->name.compare("explore_waypoint"))
+		{
+			if (use_dynamic_object_finding)
+				exploreActionDynamic(msg);
+			else
+				exploreActionStatic(msg);
+		}
+		//if(0==msg->name.compare("observe-classifiable_from")) examineAction(msg);
+		//if(0==msg->name.compare("explore_waypoint")) examineAction(msg);
 	}
 
 	
 	/* action dispatch callback; explore action */
-	void RPPerceptionAction::exploreAction(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
+	void RPPerceptionAction::exploreActionDynamic(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
 
 		ROS_INFO("KCL: (PerceptionAction) explore action recieved");
 
@@ -111,11 +128,87 @@ namespace KCL_rosplan {
 		// report this action is achieved
 		publishFeedback(msg->action_id,"action achieved");
 	}
+	
+	/**
+	 * examine action dispatch callback;
+	 * parameters (?from ?view - waypoint ?o - object ?v - robot  ?l ?l2 - level ?kb - knowledgebase)
+	 */
+	void RPPerceptionAction::exploreActionStatic(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
+
+		ROS_INFO("KCL: (PerceptionAction) explore action recieved");
+
+		// get waypoint ID from action dispatch
+		std::string explored_waypoint;
+		bool foundWP = false;
+		for(size_t i=0; i<msg->parameters.size(); i++) {
+			if(0==msg->parameters[i].key.compare("wp")) {
+				explored_waypoint = msg->parameters[i].value;
+				foundWP = true;
+			}
+		}
+		if(!foundWP) {
+			ROS_INFO("KCL: (PerceptionAction) aborting action dispatch; malformed parameters");
+			return;
+		}
+		
+		// publish feedback (enabled)
+		publishFeedback(msg->action_id,"action enabled");
+
+		// dispatch Perception action
+		squirrel_object_perception_msgs::LookForObjectsGoal perceptionGoal;
+		perceptionGoal.look_for_object = squirrel_object_perception_msgs::LookForObjectsGoal::EXPLORE;
+		examine_action_client.sendGoal(perceptionGoal);
+		
+		examine_action_client.waitForResult();
+		actionlib::SimpleClientGoalState state = examine_action_client.getState();
+		bool success =  (state == actionlib::SimpleClientGoalState::SUCCEEDED);
+		ROS_INFO("KCL: (PerceptionAction) check object finished: %s", state.toString().c_str());
+
+		// add the new knowledge
+		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+		rosplan_knowledge_msgs::KnowledgeItem knowledge;
+		knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+		knowledge.attribute_name = "explored";
+		diagnostic_msgs::KeyValue kv;
+		kv.key = "wp";
+		kv.value = explored_waypoint;
+		knowledge.values.push_back(kv);
+
+		knowledge_update_service.request.knowledge = knowledge;
+		if (!update_knowledge_client.call(knowledge_update_service)) {
+			ROS_ERROR("KCL: (PerceptionAction) Could not add the explored predicate to the knowledge base.");
+		}
+		
+		if (success) {
+
+			// add all new objects
+			std::vector<squirrel_object_perception_msgs::SceneObject>::const_iterator ci = examine_action_client.getResult()->objects_added.begin();
+			for (; ci != examine_action_client.getResult()->objects_added.end(); ++ci) {
+				squirrel_object_perception_msgs::SceneObject so = (*ci);
+				addObject(so);
+			}
+
+			// update all new objects
+			ci = examine_action_client.getResult()->objects_updated.begin();
+			for (; ci != examine_action_client.getResult()->objects_updated.end(); ++ci) {
+				squirrel_object_perception_msgs::SceneObject so = (*ci);
+				updateObject(so, explored_waypoint);
+			}
+			
+			// publish feedback
+			ROS_INFO("KCL: (PerceptionAction) action complete");
+			publishFeedback(msg->action_id, "action achieved");
+		} else {
+			ROS_INFO("KCL: (PerceptionAction) action failed");
+			publishFeedback(msg->action_id, "action failed");
+		}
+	}
 
 	/*
 	 * examine action dispatch callback;
 	 * parameters (?from ?view - waypoint ?o - object ?v - robot  ?l ?l2 - level ?kb - knowledgebase)
-	 */
+	 *
 	void RPPerceptionAction::examineAction(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
 
 		ROS_INFO("KCL: (PerceptionAction) explore action recieved");
@@ -221,7 +314,7 @@ namespace KCL_rosplan {
 			publishFeedback(msg->action_id, "action failed");
 		}
 	}
-
+*/
 	void RPPerceptionAction::publishFeedback(int action_id, std::string feedback) {
 		// publish feedback
 		rosplan_dispatch_msgs::ActionFeedback fb;
