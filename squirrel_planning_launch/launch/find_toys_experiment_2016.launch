@@ -1,5 +1,5 @@
 <launch>
-	<!-- domain file -->
+	!-- domain file -->
 	<param name="data_path" value="$(find squirrel_planning_launch)/common/" />
 	<param name="planner_path" value="$(find rosplan_planning_system)/common/bin/" />
 
@@ -90,21 +90,22 @@
             <param name="stop_when_enough_lumps_found" value="true" type="bool" />
 	    <!-- spawn objects in gazebo -->
             <param name="spawn_objects" value="true" type="bool" />
-            <param name="model_file_name" value="/home/bram/.gazebo/models/cardboard_box/model.sdf" />
+            <param name="model_file_name" value="/home/edith/.gazebo/models/beer/model.sdf" />
             <!-- locations of toys to be placed -->
-	    <param name="toy_p0" value="3.0,1.9,0.0" />
+	    <param name="toy_p0" value="3.0,-4.0,0.0" />
+	    <param name="toy_p1" value="-0.2,-9.2,0.0" />
 	    <!-- bounding box for placing view cones (most be convex). -->
 	    <param name="viewcone_bounding_box_p0" value="-2.0,0.9,0.0" />
 	    <param name="viewcone_bounding_box_p1" value="-2.0,-9.54,0.0" />
 	    <param name="viewcone_bounding_box_p2" value="6.05,-9.54,0.0" />
 	    <param name="viewcone_bounding_box_p3" value="6.05,0.9,0.0" />
 	    <!-- view cone parameters -->
-	    <param name="viewcone_max_viewcones" value="10" type="int" />
+	    <param name="viewcone_max_viewcones" value="20" type="int" />
 	    <param name="viewcone_occupancy_threshold" value="5" type="int" />
-	    <param name="viewcone_field_of_view" value="0.52" type="double" />
+	    <param name="viewcone_field_of_view" value="0.72" type="double" />
 	    <param name="viewcone_view_distance" value="2.0" type="double" />
 	    <param name="viewcone_sample_size" value="1000" type="int" />
-	    <param name="viewcone_safe_distance" value="1.0" type="double" />
+	    <param name="viewcone_safe_distance" value="0.5" type="double" />
 	</node>
 
 	<node name="squirrel_perception_waypoints_server" pkg="squirrel_perception_waypoint" type="squirrel_perception_waypoints_server" required="true">
