@@ -425,6 +425,7 @@ namespace KCL_rosplan {
 			fb.action_id = msg->action_id;
 			fb.status = "action failed";
 			action_feedback_pub.publish(fb);
+			return;
 		}
 		
 		
