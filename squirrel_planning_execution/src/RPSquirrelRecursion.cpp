@@ -787,23 +787,28 @@ namespace KCL_rosplan {
 		
 		// Place objects in the designated possible boxes.
 		std::string model_file_name;
-		node_handle->getParam("/squirrel_interface_recursion/model_file_name", model_file_name);
-		
-		// Read in the model.
-		std::ifstream model_file(model_file_name.c_str());
 		std::stringstream model_xml_ss;
-		if (model_file.is_open())
+		
+		if (spawn_objects)
 		{
-			std::string line;
-			while (getline(model_file, line))
+			node_handle->getParam("/squirrel_interface_recursion/model_file_name", model_file_name);
+			
+			// Read in the model.
+			std::ifstream model_file(model_file_name.c_str());
+			
+			if (model_file.is_open())
 			{
-				model_xml_ss << line << std::endl;
+				std::string line;
+				while (getline(model_file, line))
+				{
+					model_xml_ss << line << std::endl;
+				}
 			}
-		}
-		else
-		{
-			ROS_ERROR("KCL: (RPSquirrelRecursion) Could not open %s.", model_file_name.c_str());
-			exit(-1);
+			else
+			{
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not open %s.", model_file_name.c_str());
+				exit(-1);
+			}
 		}
 		
 		std::vector<geometry_msgs::Pose> toy_poses;
