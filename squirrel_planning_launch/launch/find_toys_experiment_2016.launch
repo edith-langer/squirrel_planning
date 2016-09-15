@@ -91,6 +91,8 @@
 	    <!-- spawn objects in gazebo -->
             <param name="spawn_objects" value="true" type="bool" />
             <param name="model_file_name" value="/home/bram/.gazebo/models/cardboard_box/model.sdf" />
+            <!-- locations of toys to be placed -->
+	    <param name="toy_p0" value="3.0,1.9,0.0" />
 	    <!-- bounding box for placing view cones (most be convex). -->
 	    <param name="viewcone_bounding_box_p0" value="-2.0,0.9,0.0" />
 	    <param name="viewcone_bounding_box_p1" value="-2.0,-9.54,0.0" />

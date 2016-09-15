@@ -397,7 +397,7 @@ namespace KCL_rosplan {
 			rosplan_knowledge_msgs::KnowledgeItem kenny_knowledge;
 			kenny_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
 			kenny_knowledge.attribute_name = "explored";
-			kenny_knowledge.is_negative = true;
+			kenny_knowledge.is_negative = false;
 			
 			diagnostic_msgs::KeyValue kv;
 			kv.key = "a";
@@ -420,6 +420,36 @@ namespace KCL_rosplan {
 			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (examined %s) predicate to the knowledge base.", area.c_str());
 			
 			kenny_knowledge.values.clear();
+			
+			// Remove all previous explored waypoints.
+			rosplan_knowledge_msgs::GetAttributeService attribute_service;
+			attribute_service.request.predicate_name = "explored";
+			if (!get_attribute_client.call(attribute_service))
+			{
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Unable to call the attribute service.");
+				exit(-1);
+			}
+			
+			for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = attribute_service.response.attributes.begin(); ci != attribute_service.response.attributes.end(); ++ci)
+			{
+				const rosplan_knowledge_msgs::KnowledgeItem& knowledge_item = *ci;
+				rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_GOAL;
+				knowledge_update_service.request.knowledge = knowledge_item;
+				if (!update_knowledge_client.call(knowledge_update_service)) {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the previous goals from the knowledge base.");
+					exit(-1);
+				}
+				
+				std::stringstream ss;
+				ss << "(" << knowledge_item.attribute_name;
+				for (std::vector<diagnostic_msgs::KeyValue>::const_iterator ci = knowledge_item.values.begin(); ci != knowledge_item.values.end(); ++ci)
+				{
+					ss << " " << (*ci).value;
+				}
+				ss << ")";
+				ROS_INFO("KCL: (RPSquirrelRecursion) Removed the fact %s.", ss.str().c_str());
+			}
 			
 			// Trigger a replan.
 			fb.action_id = msg->action_id;
@@ -648,12 +678,6 @@ namespace KCL_rosplan {
 			exit(-1);
 		}
 		ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (tidy room) to the knowledge base.");
-
-		
-		bool spawn_objects = false;
-		std::string model_file_name;
-		node_handle->getParam("/squirrel_interface_recursion/spawn_objects", spawn_objects);
-		node_handle->getParam("/squirrel_interface_recursion/model_file_name", model_file_name);
 		
 		if (!initial_problem_generated)
 		{
@@ -690,10 +714,15 @@ namespace KCL_rosplan {
 			waypoint_knowledge.values.clear();
 		}
 		
+		bool spawn_objects = false;
+		node_handle->getParam("/squirrel_interface_recursion/spawn_objects", spawn_objects);
+		
 		// Don't place objects in Gazebo for a sencond time.
-		if (initial_problem_generated || !spawn_objects) return;
+		if (initial_problem_generated) return;
 		
 		// Place objects in the designated possible boxes.
+		std::string model_file_name;
+		node_handle->getParam("/squirrel_interface_recursion/model_file_name", model_file_name);
 		
 		// Read in the model.
 		std::ifstream model_file(model_file_name.c_str());
@@ -712,8 +741,46 @@ namespace KCL_rosplan {
 			exit(-1);
 		}
 		
+		std::vector<geometry_msgs::Pose> toy_locations;
+		while (toy_locations.size() < number_of_toys)
+		{
+			std::stringstream bb_name;
+			bb_name << "/squirrel_interface_recursion/toy_p";
+			bb_name << toy_locations.size();
+			
+			if (!node_handle->hasParam(bb_name.str()))
+			{
+				ROS_INFO("KCL: (RPSquirrelRecursion) Could not find the parameter %s, if more toys need to be spawned they will be spawned at random locations.", bb_name.str().c_str());
+				break;
+			}
+			
+			std::string coordinate;
+			node_handle->getParam(bb_name.str(), coordinate);
+			std::vector<std::string> elements;
+			split(coordinate, ',', elements);
+			
+			if (elements.size() != 3)
+			{
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Misformatted coordinate for toy %s. Expected format (x,y,z)", coordinate.c_str());
+				exit (-1);
+			}
+			
+			geometry_msgs::Pose model_pose;
+			model_pose.orientation.x = 0;
+			model_pose.orientation.y = 0;
+			model_pose.orientation.z = 0;
+			model_pose.orientation.w = 1;
+			
+			model_pose.position.x = ::atof(elements[0].c_str());
+			model_pose.position.y = ::atof(elements[1].c_str());
+			model_pose.position.z = ::atof(elements[2].c_str());
+			
+			ROS_INFO("KCL: (RPSquirrelRecursion) Found toy coordinate (%f, %f, %f)", ::atof(elements[0].c_str()), ::atof(elements[1].c_str()), ::atof(elements[2].c_str()));
+			toy_locations.push_back(model_pose);
+		}
+		
 		// Spawn a certain number of objects in Gazebo.
-		for (int i = 0; i < number_of_toys; ++i)
+		while (toy_locations.size() < number_of_toys)
 		{
 			// Find a pose.
 			tf::Vector3 toy_location;
@@ -739,25 +806,33 @@ namespace KCL_rosplan {
 			model_pose.position.y = toy_location.y();
 			model_pose.position.z = 0.01f;
 			
-			std::stringstream ss_object_name;
-			ss_object_name << "Box" << i;
+			ROS_INFO("KCL: (RPSquirrelRecursion) Random sampled toy coordinate (%f, %f, %f)", model_pose.position.x, model_pose.position.y, model_pose.position.z);
 			
-			gazebo_msgs::SpawnModel spawn_model;
-			spawn_model.request.model_name = ss_object_name.str().c_str();
-			spawn_model.request.model_xml = model_xml_ss.str();
-			spawn_model.request.robot_namespace = "";
-			spawn_model.request.initial_pose = model_pose;
-			spawn_model.request.reference_frame = "/map";
-			if (!gazebo_spawn_model_client.call(spawn_model) || !spawn_model.response.success)
+			toy_locations.push_back(model_pose);
+		}
+		
+		if (spawn_objects)
+		{
+			for (unsigned int i = 0; i < toy_locations.size(); ++i)
 			{
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Unable to spawn object in Gazebo.");
-				std::cout << model_xml_ss.str() << std::endl;
-				exit(-1);
+				const geometry_msgs::Pose& model_pose = toy_locations[i];
+				std::stringstream ss_object_name;
+				ss_object_name << "Box" << i;
+				
+				gazebo_msgs::SpawnModel spawn_model;
+				spawn_model.request.model_name = ss_object_name.str().c_str();
+				spawn_model.request.model_xml = model_xml_ss.str();
+				spawn_model.request.robot_namespace = "";
+				spawn_model.request.initial_pose = model_pose;
+				spawn_model.request.reference_frame = "/map";
+				if (!gazebo_spawn_model_client.call(spawn_model) || !spawn_model.response.success)
+				{
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Unable to spawn object in Gazebo.");
+					std::cout << model_xml_ss.str() << std::endl;
+					exit(-1);
+				}
+				ROS_INFO("KCL: (RPSquirrelRecursion) Object spawned at (%f, %f, %f)!", model_pose.position.x, model_pose.position.y, model_pose.position.z);
 			}
-			
-			toy_locations.push_back(model_pose.position);
-			
-			ROS_INFO("KCL: (RPSquirrelRecursion) Object spawned!");
 		}
 	}
 	
