@@ -26,8 +26,12 @@ namespace KCL_rosplan {
 
 		if (nh.hasParam("/squirrel_interface_perception/use_dynamic_object_finding"))
 		{
-			nh.param("/squirrel_interface_perception/use_dynamic_object_finding", use_dynamic_object_finding); 
+			nh.getParam("/squirrel_interface_perception/use_dynamic_object_finding", use_dynamic_object_finding); 
 			ROS_INFO("KCL: (PerceptionAction) Found the param /squirrel_interface_perception/use_dynamic_object_finding.");
+		}
+		else
+		{
+			ROS_ERROR("/squirrel_interface_perception/use_dynamic_object_finding NOT FOUND!");
 		}
 		
 		if (use_dynamic_object_finding)
@@ -246,6 +250,32 @@ namespace KCL_rosplan {
 		bool success =  (state == actionlib::SimpleClientGoalState::SUCCEEDED);
 		ROS_INFO("KCL: (PerceptionAction) check object finished: %s", state.toString().c_str());
 
+		bool object_segmented = false;
+
+		if (success) {
+
+			// add all new objects
+			std::vector<squirrel_object_perception_msgs::SceneObject>::const_iterator ci = examine_action_client.getResult()->objects_added.begin();
+			for (; ci != examine_action_client.getResult()->objects_added.end(); ++ci) {
+				squirrel_object_perception_msgs::SceneObject so = (*ci);
+				addObject(so);
+			}
+
+			// update all new objects
+			ci = examine_action_client.getResult()->objects_updated.begin();
+			for (; ci != examine_action_client.getResult()->objects_updated.end(); ++ci) {
+				squirrel_object_perception_msgs::SceneObject so = (*ci);
+				updateObject(so, wpID);
+			}
+			
+			// publish feedback
+			ROS_INFO("KCL: (PerceptionAction) action complete");
+			publishFeedback(msg->action_id, "action achieved");
+		} else {
+			ROS_INFO("KCL: (PerceptionAction) action failed");
+			publishFeedback(msg->action_id, "action failed");
+		}
+		
 		// update examined in the knowledge base .
 		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
 		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
@@ -277,30 +307,6 @@ namespace KCL_rosplan {
 		ROS_INFO("KCL: (ClassifyObjectPDDLAction) Removed %s (examined %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", objectID.c_str());
 	
 		knowledge_item.values.clear();
-
-		if (success) {
-
-			// add all new objects
-			std::vector<squirrel_object_perception_msgs::SceneObject>::const_iterator ci = examine_action_client.getResult()->objects_added.begin();
-			for (; ci != examine_action_client.getResult()->objects_added.end(); ++ci) {
-				squirrel_object_perception_msgs::SceneObject so = (*ci);
-				addObject(so);
-			}
-
-			// update all new objects
-			ci = examine_action_client.getResult()->objects_updated.begin();
-			for (; ci != examine_action_client.getResult()->objects_updated.end(); ++ci) {
-				squirrel_object_perception_msgs::SceneObject so = (*ci);
-				updateObject(so, wpID);
-			}
-			
-			// publish feedback
-			ROS_INFO("KCL: (PerceptionAction) action complete");
-			publishFeedback(msg->action_id, "action achieved");
-		} else {
-			ROS_INFO("KCL: (PerceptionAction) action failed");
-			publishFeedback(msg->action_id, "action failed");
-		}
 	}
 
 	void RPPerceptionAction::publishFeedback(int action_id, std::string feedback) {

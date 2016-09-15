@@ -45,14 +45,22 @@ namespace KCL_rosplan {
 	
 	struct ToyState
 	{
-		ToyState(const geometry_msgs::Point& location)
-			: location_(location), is_examined_(false)
+		ToyState(const geometry_msgs::Point& location, const std::string& toy_name)
+			: location_(location), name_(toy_name), is_examined_(false)
 		{
 			
 		}
 		
+		void setExamined()
+		{
+			is_examined_ = true;
+			time_stamp_ = ros::Time::now();
+		}
+		
 		geometry_msgs::Point location_;
+		std::string name_;
 		bool is_examined_;
+		ros::Time time_stamp_;
 	};
 	
 	class BoundingBox
@@ -156,6 +164,11 @@ namespace KCL_rosplan {
 		
 		// Make sure waypoints are uniquely named.
 		int waypoint_number;
+		
+		// Start time of the experiments.
+		ros::Time start_time;
+		
+		int number_of_segmentation_actions;
 
 	public:
 
