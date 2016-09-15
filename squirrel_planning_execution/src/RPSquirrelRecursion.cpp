@@ -371,18 +371,66 @@ namespace KCL_rosplan {
 		actionlib::SimpleClientGoalState state = planner_instance.getState();
 		ROS_INFO("KCL: (RPSquirrelRecursion) action finished: %s, %s", action_name.c_str(), state.toString().c_str());
 
+		// First of all check if enough lumps were found, or if enough objects were classified.
+		if (!taskAchieved(action_name))
+		{
+			last_received_msg.clear();
+			
+			if (msg->parameters.size() < 2)
+			{
+				std::stringstream ss;
+				ss << "(" << action_name;
+				for (unsigned int i = 0; i < msg->parameters.size(); ++i)
+				{
+					ss << " " << msg->parameters[i];
+				}
+				ss << ")";
+				ROS_ERROR("KCL: (RPSquirrelRecursion) The action does not have a 2nd parameter (area).");
+				ROS_ERROR("KCL: (RPSquirrelRecursion) %s.", ss.str().c_str());
+				exit(-1);
+			}
+			const std::string& area = msg->parameters[1].value;
+			
+			// Remove the facts that the area is examined and explored.
+			rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+			knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
+			rosplan_knowledge_msgs::KnowledgeItem kenny_knowledge;
+			kenny_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+			kenny_knowledge.attribute_name = "explored";
+			kenny_knowledge.is_negative = true;
+			
+			diagnostic_msgs::KeyValue kv;
+			kv.key = "a";
+			kv.value = msg->parameters[1].value;
+			kenny_knowledge.values.push_back(kv);
+			
+			knowledge_update_service.request.knowledge = kenny_knowledge;
+			if (!update_knowledge_client.call(knowledge_update_service)) {
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the (explored %s) predicate to the knowledge base.", area.c_str());
+				exit(-1);
+			}
+			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (explored %s) predicate to the knowledge base.", area.c_str());
+			
+			kenny_knowledge.attribute_name = "examined";
+			knowledge_update_service.request.knowledge = kenny_knowledge;
+			if (!update_knowledge_client.call(knowledge_update_service)) {
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the (examined %s) predicate to the knowledge base.", area.c_str());
+				exit(-1);
+			}
+			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (examined %s) predicate to the knowledge base.", area.c_str());
+			
+			kenny_knowledge.values.clear();
+			
+			// Trigger a replan.
+			fb.action_id = msg->action_id;
+			fb.status = "action failed";
+			action_feedback_pub.publish(fb);
+		}
+		
+		
 		if(state == actionlib::SimpleClientGoalState::SUCCEEDED || completed_task)
 		{
-			// First of all check if enough lumps were found, or if enough objects were classified.
-			if (!taskAchieved(action_name))
-			{
-				last_received_msg.clear();
-				
-				// Trigger a replan.
-				fb.action_id = msg->action_id;
-				fb.status = "action failed";
-				action_feedback_pub.publish(fb);
-			}
+			
 			
 			// Update the knowledge base with what has been achieved.
 			if ("explore_area" == action_name)
@@ -865,7 +913,8 @@ namespace KCL_rosplan {
 				{
 					for (std::vector<boost::shared_ptr<geometry_msgs::PoseStamped> >::const_iterator ci = location_locations.begin(); ci != location_locations.end(); ++ci)
 					{
-						std::cout << "KCL: (RPSquirrelRoadmap) Found the location of " << location_predicate << ": (" << (*ci)->pose.position.x << ", " << (*ci)->pose.position.y << ", " << (*ci)->pose.position.z << ")" << std::endl;
+						//std::cout << "KCL: (RPSquirrelRoadmap) Found the location of " << location_predicate << ": (" << (*ci)->pose.position.x << ", " << (*ci)->pose.position.y << ", " << (*ci)->pose.position.z << ")" << std::endl;
+						ROS_ERROR("KCL: (RPSquirrelRoadmap) Found the location of %s: (%f, %f, %f)", location_predicate.c_str(), (*ci)->pose.position.x, (*ci)->pose.position.y, (*ci)->pose.position.z);
 					}
 				}
 				else
@@ -934,7 +983,7 @@ namespace KCL_rosplan {
 */
 					// Check if this location is suitable.
 					float distance = view_cone_generator->minDistanceToBlocked(getTaskPose.response.poses[i].pose.pose.position, 0.4f);
-					if (distance < max_distance)
+					if (distance > max_distance)
 					{
 						max_distance = distance;
 						best_pose.pose = getTaskPose.response.poses[i].pose.pose;
