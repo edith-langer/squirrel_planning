@@ -861,17 +861,17 @@ namespace KCL_rosplan {
 				
 				// Get the actual location of this object.
 				std::vector<boost::shared_ptr<geometry_msgs::PoseStamped> > location_locations;
-				if (message_store.queryNamed<geometry_msgs::PoseStamped>(location_predicate, location_locations))
+				if (message_store.queryNamed<geometry_msgs::PoseStamped>(location_predicate, location_locations) && location_locations.size() == 1)
 				{
 					for (std::vector<boost::shared_ptr<geometry_msgs::PoseStamped> >::const_iterator ci = location_locations.begin(); ci != location_locations.end(); ++ci)
 					{
 						//ROS_INFO("KCL: (RPSquirrelRecursion) Found the location of 
-						std::cout << "******** Found the location of " << location_predicate << ": (" << (*ci)->pose.position.x << ", " << (*ci)->pose.position.y << ", " << (*ci)->pose.position.z << ")" << std::endl;
+						std::cout << "KCL: (RPSquirrelRoadmap) Found the location of " << location_predicate << ": (" << (*ci)->pose.position.x << ", " << (*ci)->pose.position.y << ", " << (*ci)->pose.position.z << ")" << std::endl;
 					}
 				}
 				else
 				{
-					ROS_ERROR("KCL: (RPSquirrelRoadmap) could not query message store to fetch object pose");
+					ROS_ERROR("KCL: (RPSquirrelRoadmap) could not query message store to fetch object pose. Found %zd poses.", location_locations.size());
 					return false;
 				}
 				
@@ -879,20 +879,27 @@ namespace KCL_rosplan {
 				squirrel_waypoint_msgs::ExamineWaypoint getTaskPose;
 				
 				// fetch position of object from message store
-				squirrel_object_perception_msgs::SceneObject lump;
+				//squirrel_object_perception_msgs::SceneObject lump;
 
-				std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > sceneObjects_results;
-				message_store.query<squirrel_object_perception_msgs::SceneObject>(sceneObjects_results);
+				//std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > sceneObjects_results;
+				//message_store.query<squirrel_object_perception_msgs::SceneObject>(sceneObjects_results);
 
-				ROS_INFO("KCL: (RPSquirrelRecursion) Number of objects found: %zu", sceneObjects_results.size());
+				//ROS_INFO("KCL: (RPSquirrelRecursion) Number of objects found: %zu", sceneObjects_results.size());
 
 				// Request a classification waypoint for each object.
-				for (std::vector<boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> >::const_iterator ci = sceneObjects_results.begin(); ci != sceneObjects_results.end(); ++ci)
+				//for (std::vector<boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> >::const_iterator ci = sceneObjects_results.begin(); ci != sceneObjects_results.end(); ++ci)
+				//{
+				//	const squirrel_object_perception_msgs::SceneObject& obj = **ci;
+					///getTaskPose.request.object_pose.header = obj.header;
+					///getTaskPose.request.object_pose.pose = obj.pose;
+				getTaskPose.request.object_pose.header = location_locations[0]->header;
+				getTaskPose.request.object_pose.pose = location_locations[0]->pose;
+				
+				bool found_suitable_observation_location = false;
+				while (!found_suitable_observation_location) 
 				{
-					const squirrel_object_perception_msgs::SceneObject& obj = **ci;
-					getTaskPose.request.object_pose.header = obj.header;
-					getTaskPose.request.object_pose.pose = obj.pose;
-					if (!classify_object_waypoint_client.call(getTaskPose)) {
+					if (!classify_object_waypoint_client.call(getTaskPose))
+					{
 						ROS_ERROR("KCL: (RPSquirrelRoadmap) Failed to recieve classification waypoints for %s.", object_predicate.c_str());
 						return false;
 					}
@@ -903,7 +910,7 @@ namespace KCL_rosplan {
 
 					// Add all the waypoints to the knowledge base.
 					std::stringstream ss;
-					bool found_suitable_observation_location = false;
+					
 					for(int i=0;i<getTaskPose.response.poses.size(); i++) {
 					
 						ss.str(std::string());
@@ -978,12 +985,15 @@ namespace KCL_rosplan {
 						found_suitable_observation_location = true;
 						break;
 					}
-					
+				}
+					/*
 					if (!found_suitable_observation_location)
 					{
 						ROS_ERROR("KCL: (RPSquirrelRecursion) Could not find a suitable observation location for %s.", object_predicate.c_str());
+						exit(-1);
 					}
-				}
+					*/
+				//}
 			}
 			/*
 			// add initial state (robot_at)
