@@ -24,9 +24,10 @@ namespace KCL_rosplan {
 	RPPerceptionAction::RPPerceptionAction(ros::NodeHandle &nh, std::string &actionserver)
 	 : message_store(nh), examine_action_client(actionserver, true), use_dynamic_object_finding(true) {
 
-		if (nh.hasParam("use_dynamic_object_finding"))
+		if (nh.hasParam("/squirrel_interface_perception/use_dynamic_object_finding"))
 		{
-			nh.param("use_dynamic_object_finding", use_dynamic_object_finding); 
+			nh.param("/squirrel_interface_perception/use_dynamic_object_finding", use_dynamic_object_finding); 
+			ROS_INFO("KCL: (PerceptionAction) Found the param /squirrel_interface_perception/use_dynamic_object_finding.");
 		}
 		
 		if (use_dynamic_object_finding)
