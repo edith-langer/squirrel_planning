@@ -153,6 +153,9 @@ namespace KCL_rosplan {
 		
 		// Bounding box where all the objects and view cones should be placed.
 		BoundingBox* bounding_box;
+		
+		// Make sure waypoints are uniquely named.
+		int waypoint_number;
 
 	public:
 

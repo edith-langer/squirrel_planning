@@ -117,7 +117,7 @@ namespace KCL_rosplan {
 	/*-------------*/
 
 	RPSquirrelRecursion::RPSquirrelRecursion(ros::NodeHandle &nh)
-		: node_handle(&nh), message_store(nh), initial_problem_generated(false), stop_when_enough_lumps_found(false), number_of_toys(0)
+		: node_handle(&nh), message_store(nh), initial_problem_generated(false), stop_when_enough_lumps_found(false), number_of_toys(0), waypoint_number(0)
 	{
 		// knowledge interface
 		update_knowledge_client = nh.serviceClient<rosplan_knowledge_msgs::KnowledgeUpdateService>("/kcl_rosplan/update_knowledge_base");
@@ -406,21 +406,21 @@ namespace KCL_rosplan {
 			
 			knowledge_update_service.request.knowledge = kenny_knowledge;
 			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the (explored %s) predicate to the knowledge base.", area.c_str());
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the (explored %s) predicate from the knowledge base.", area.c_str());
 				exit(-1);
 			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (explored %s) predicate to the knowledge base.", area.c_str());
+			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (explored %s) predicate from the knowledge base.", area.c_str());
 			
 			kenny_knowledge.attribute_name = "examined";
 			knowledge_update_service.request.knowledge = kenny_knowledge;
 			if (!update_knowledge_client.call(knowledge_update_service)) {
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the (examined %s) predicate to the knowledge base.", area.c_str());
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the (examined %s) predicate from the knowledge base.", area.c_str());
 				exit(-1);
 			}
-			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (examined %s) predicate to the knowledge base.", area.c_str());
+			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (examined %s) predicate from the knowledge base.", area.c_str());
 			
 			kenny_knowledge.values.clear();
-			
+			/*
 			// Remove all previous explored waypoints.
 			rosplan_knowledge_msgs::GetAttributeService attribute_service;
 			attribute_service.request.predicate_name = "explored";
@@ -434,7 +434,7 @@ namespace KCL_rosplan {
 			{
 				const rosplan_knowledge_msgs::KnowledgeItem& knowledge_item = *ci;
 				rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
-				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_GOAL;
+				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
 				knowledge_update_service.request.knowledge = knowledge_item;
 				if (!update_knowledge_client.call(knowledge_update_service)) {
 					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the previous goals from the knowledge base.");
@@ -451,6 +451,56 @@ namespace KCL_rosplan {
 				ROS_INFO("KCL: (RPSquirrelRecursion) Removed the fact %s.", ss.str().c_str());
 			}
 			
+			// Reset kenny's waypoint.
+			attribute_service.request.predicate_name = "robot_at";
+			if (!get_attribute_client.call(attribute_service))
+			{
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Unable to call the attribute service.");
+				exit(-1);
+			}
+			
+			for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = attribute_service.response.attributes.begin(); ci != attribute_service.response.attributes.end(); ++ci)
+			{
+				const rosplan_knowledge_msgs::KnowledgeItem& knowledge_item = *ci;
+				rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
+				knowledge_update_service.request.knowledge = knowledge_item;
+				if (!update_knowledge_client.call(knowledge_update_service)) {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the previous goals from the knowledge base.");
+					exit(-1);
+				}
+				
+				std::stringstream ss;
+				ss << "(" << knowledge_item.attribute_name;
+				for (std::vector<diagnostic_msgs::KeyValue>::const_iterator ci = knowledge_item.values.begin(); ci != knowledge_item.values.end(); ++ci)
+				{
+					ss << " " << (*ci).value;
+				}
+				ss << ")";
+				ROS_INFO("KCL: (RPSquirrelRecursion) Removed the fact %s.", ss.str().c_str());
+			}
+			
+			// add initial state (robot_at)
+			rosplan_knowledge_msgs::KnowledgeItem waypoint_knowledge;
+			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;
+			add_waypoints_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+
+			waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+			waypoint_knowledge.attribute_name = "robot_at";
+			waypoint_knowledge.is_negative = false;
+			kv.key = "v";
+			kv.value = "kenny";
+			waypoint_knowledge.values.push_back(kv);
+			kv.key = "wp";
+			kv.value = "kenny_waypoint";
+			waypoint_knowledge.values.push_back(kv);
+			add_waypoints_service.request.knowledge = waypoint_knowledge;
+			if (!update_knowledge_client.call(add_waypoints_service)) {
+				ROS_ERROR("KCL: (TidyRooms) Could not add the fact (robot_at kenny room) to the knowledge base.");
+				exit(-1);
+			}
+			ROS_INFO("KCL: (TidyRooms) Added (robot_at kenny room) to the knowledge base.");
+			*/
 			// Trigger a replan.
 			fb.action_id = msg->action_id;
 			fb.status = "action failed";
@@ -794,6 +844,14 @@ namespace KCL_rosplan {
 				p.y = toy_location.y();
 				p.z = 0;
 				valid_location = !view_cone_generator->isBlocked(p, 1.0f);
+				
+				// Check if this object is too close to another object.
+				for (unsigned int i = 0; i < toy_locations.size(); ++i)
+				{
+					const geometry_msgs::Pose& model_pose = toy_locations[i];
+					float distance = sqrt((model_pose.position.x - toy_location.x()) * (model_pose.position.x - toy_location.x()) + (model_pose.position.y - toy_location.y()) * (model_pose.position.y - toy_location.y()));
+					if (distance < 0.5f) valid_location = false;
+				}
 			}
 			
 			geometry_msgs::Pose model_pose;
@@ -899,7 +957,6 @@ namespace KCL_rosplan {
 			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;
 			add_waypoints_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
 			
-			unsigned int waypoint_number = 0;
 			std::stringstream ss;
 			for (std::vector<geometry_msgs::Pose>::const_iterator ci = view_poses.begin(); ci != view_poses.end(); ++ci) {
 				
