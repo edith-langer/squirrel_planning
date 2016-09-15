@@ -456,6 +456,38 @@ bool ViewConeGenerator::canConnect(const geometry_msgs::Point& w1, const geometr
 	return true;
 }
 
+float ViewConeGenerator::minDistanceToBlocked(const geometry_msgs::Point& point, float max_distance) const
+{
+	float min_distance = std::numeric_limits<float>::max();
+	for (float x = -max_distance - last_received_occupancy_grid_msgs_.info.resolution; x < max_distance + last_received_occupancy_grid_msgs_.info.resolution; x += last_received_occupancy_grid_msgs_.info.resolution)
+	{
+		for (float y = -max_distance - last_received_occupancy_grid_msgs_.info.resolution; y < max_distance + last_received_occupancy_grid_msgs_.info.resolution; y += last_received_occupancy_grid_msgs_.info.resolution)
+		{
+			float distance = sqrt(x*x + y*y);
+			if (distance > max_distance)
+			{
+				continue;
+			}
+			
+			geometry_msgs::Point p;
+			p.x = x + point.x;
+			p.y = y + point.y;
+			
+			occupancy_grid_utils::Cell cell = occupancy_grid_utils::pointCell(last_received_occupancy_grid_msgs_.info, p);
+			
+			if (cell.x < 0 || cell.y < 0 || cell.x >= last_received_occupancy_grid_msgs_.info.width || cell.y >= last_received_occupancy_grid_msgs_.info.height) {
+				continue;
+			}
+			
+			if (last_received_occupancy_grid_msgs_.data[cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width] > 0)
+			{
+				if (min_distance > distance) min_distance = distance;
+			}
+		}
+	}
+	return min_distance;
+}
+
 
 bool ViewConeGenerator::isBlocked(const geometry_msgs::Point& point, float min_distance) const
 {

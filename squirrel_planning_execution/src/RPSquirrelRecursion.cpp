@@ -865,7 +865,6 @@ namespace KCL_rosplan {
 				{
 					for (std::vector<boost::shared_ptr<geometry_msgs::PoseStamped> >::const_iterator ci = location_locations.begin(); ci != location_locations.end(); ++ci)
 					{
-						//ROS_INFO("KCL: (RPSquirrelRecursion) Found the location of 
 						std::cout << "KCL: (RPSquirrelRoadmap) Found the location of " << location_predicate << ": (" << (*ci)->pose.position.x << ", " << (*ci)->pose.position.y << ", " << (*ci)->pose.position.z << ")" << std::endl;
 					}
 				}
@@ -895,97 +894,107 @@ namespace KCL_rosplan {
 				getTaskPose.request.object_pose.header = location_locations[0]->header;
 				getTaskPose.request.object_pose.pose = location_locations[0]->pose;
 				
-				bool found_suitable_observation_location = false;
-				while (!found_suitable_observation_location) 
+				ROS_INFO("KCL: (RPSquirrelRecursion) Find observation poses.");
+				
+				if (!classify_object_waypoint_client.call(getTaskPose))
 				{
-					if (!classify_object_waypoint_client.call(getTaskPose))
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Failed to recieve classification waypoints for %s.", object_predicate.c_str());
+					return false;
+				}
+
+				std_msgs::Int8 debug_pose_number;
+				debug_pose_number.data = getTaskPose.response.poses.size();
+				ROS_INFO("KCL: (RPSquirrelRecursion) Found %d observation poses", debug_pose_number.data);
+
+				// Add all the waypoints to the knowledge base.
+				std::stringstream ss;
+				geometry_msgs::PoseStamped best_pose;
+				best_pose.header.seq = 0;
+				best_pose.header.frame_id = "/map";
+				best_pose.header.stamp = ros::Time::now();
+				
+				float max_distance = -std::numeric_limits<float>::max();
+				
+				for(int i=0;i<getTaskPose.response.poses.size(); i++) {
+				
+					ss.str(std::string());
+					ss << object_predicate << "_observation_wp";
+/*
+					geometry_msgs::PoseStamped pose;
+					pose.header.seq = 0;
+					pose.header.frame_id = "/map";
+					pose.header.stamp = ros::Time::now();
+					pose.pose = getTaskPose.response.poses[i].pose.pose;
+					
+					if (view_cone_generator->isBlocked(pose.pose.position, 0.4f))
 					{
-						ROS_ERROR("KCL: (RPSquirrelRoadmap) Failed to recieve classification waypoints for %s.", object_predicate.c_str());
-						return false;
+						ROS_INFO("KCL: (RPSquirrelRecursion) Ignore: (%f, %f, %f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
+						continue;
 					}
-	
-					std_msgs::Int8 debug_pose_number;
-					debug_pose_number.data = getTaskPose.response.poses.size();
-					ROS_INFO("KCL: (RPSquirrelRecursion) Found %d observation poses", debug_pose_number.data);
-
-					// Add all the waypoints to the knowledge base.
-					std::stringstream ss;
-					
-					for(int i=0;i<getTaskPose.response.poses.size(); i++) {
-					
-						ss.str(std::string());
-						ss << object_predicate << "_observation_wp";
-
-						geometry_msgs::PoseStamped pose;
-						pose.header.seq = 0;
-						pose.header.frame_id = "/map";
-						pose.header.stamp = ros::Time::now();
-						pose.pose = getTaskPose.response.poses[i].pose.pose;
-						
-						// Check if this location is suitable.
-						if (view_cone_generator->isBlocked(pose.pose.position, 0.4f))
-						{
-							ROS_INFO("KCL: (RPSquirrelRecursion) Ignore: (%f, %f, %f)", pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
-							continue;
-						}
-						
-						std::string id(message_store.insertNamed(ss.str(), pose));
-					
-//						ROS_INFO("KCL: (RPSquirrelRecursion) Process observation pose: %s", ss.str().c_str());
-					
-//						std::cout << "KCL: (RPSquirrelRecursion) Lump location: (" << obj.pose.position.x << ", " << obj.pose.position.y << ", " << obj.pose.position.z << "); Observation location: (" << pose.pose.position.x << ", " << pose.pose.position.y << ", " << pose.pose.position.z << ")" << std::endl;
-						
-						rosplan_knowledge_msgs::KnowledgeUpdateService updateSrv;
-						updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
-						updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
-						updateSrv.request.knowledge.instance_type = "waypoint";
-						updateSrv.request.knowledge.instance_name = ss.str();
-						if (!update_knowledge_client.call(updateSrv)) {
-							ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the instance %s to the knowledge base.", ss.str().c_str());
-							exit(-1);
-						}
-						
-						// Add the fact that the object is observable from there.
-						updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-						updateSrv.request.knowledge.attribute_name = "observable_from";
-						updateSrv.request.knowledge.is_negative = false;
-						diagnostic_msgs::KeyValue kv;
-						kv.key = "o";
-						kv.value = object_predicate;
-						updateSrv.request.knowledge.values.push_back(kv);
-						
-						kv.key = "wp";
-						kv.value = ss.str();
-						updateSrv.request.knowledge.values.push_back(kv);
-						if (!update_knowledge_client.call(updateSrv)) {
-							ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (observable_from %s %s) to the knowledge base.", object_predicate.c_str(), ss.str().c_str());
-							exit(-1);
-						}
-						
-						updateSrv.request.knowledge.values.clear();
-						
-						// Setup the goal.
-						updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_GOAL;
-						updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-						updateSrv.request.knowledge.attribute_name = "examined";
-						updateSrv.request.knowledge.is_negative = false;
-						//diagnostic_msgs::KeyValue kv;
-						kv.key = "o";
-						kv.value = object_predicate;
-						updateSrv.request.knowledge.values.push_back(kv);
-						
-						//updateSrv.request.knowledge = update_knowledge_client;
-						if (!update_knowledge_client.call(updateSrv)) {
-							ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the goal (examined %s) to the knowledge base.", object_predicate.c_str());
-							exit(-1);
-						}
-						ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (examined %s) to the knowledge base.", object_predicate.c_str());
-						
-						// only consider a single waypoint.
-						found_suitable_observation_location = true;
-						break;
+*/
+					// Check if this location is suitable.
+					float distance = view_cone_generator->minDistanceToBlocked(getTaskPose.response.poses[i].pose.pose.position, 0.4f);
+					if (distance < max_distance)
+					{
+						max_distance = distance;
+						best_pose.pose = getTaskPose.response.poses[i].pose.pose;
 					}
 				}
+				
+				// Store the best pose in the message_store.
+				std::string id(message_store.insertNamed(ss.str(), best_pose));
+				
+				ROS_INFO("KCL: (RPSquirrelRecursion) Best pose: (%f, %f, %f) Q=[%f, %f, %f, %f], distance to an obstacle: %f", best_pose.pose.position.x, best_pose.pose.position.y, best_pose.pose.position.z, best_pose.pose.orientation.x, best_pose.pose.orientation.y, best_pose.pose.orientation.z, best_pose.pose.orientation.w, max_distance);
+			
+//						ROS_INFO("KCL: (RPSquirrelRecursion) Process observation pose: %s", ss.str().c_str());
+			
+//						std::cout << "KCL: (RPSquirrelRecursion) Lump location: (" << obj.pose.position.x << ", " << obj.pose.position.y << ", " << obj.pose.position.z << "); Observation location: (" << pose.pose.position.x << ", " << pose.pose.position.y << ", " << pose.pose.position.z << ")" << std::endl;
+				
+				rosplan_knowledge_msgs::KnowledgeUpdateService updateSrv;
+				updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+				updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
+				updateSrv.request.knowledge.instance_type = "waypoint";
+				updateSrv.request.knowledge.instance_name = ss.str();
+				if (!update_knowledge_client.call(updateSrv)) {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the instance %s to the knowledge base.", ss.str().c_str());
+					exit(-1);
+				}
+				
+				// Add the fact that the object is observable from there.
+				updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+				updateSrv.request.knowledge.attribute_name = "observable_from";
+				updateSrv.request.knowledge.is_negative = false;
+				diagnostic_msgs::KeyValue kv;
+				kv.key = "o";
+				kv.value = object_predicate;
+				updateSrv.request.knowledge.values.push_back(kv);
+				
+				kv.key = "wp";
+				kv.value = ss.str();
+				updateSrv.request.knowledge.values.push_back(kv);
+				if (!update_knowledge_client.call(updateSrv)) {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (observable_from %s %s) to the knowledge base.", object_predicate.c_str(), ss.str().c_str());
+					exit(-1);
+				}
+				
+				updateSrv.request.knowledge.values.clear();
+				
+				// Setup the goal.
+				updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_GOAL;
+				updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+				updateSrv.request.knowledge.attribute_name = "examined";
+				updateSrv.request.knowledge.is_negative = false;
+				//diagnostic_msgs::KeyValue kv;
+				kv.key = "o";
+				kv.value = object_predicate;
+				updateSrv.request.knowledge.values.push_back(kv);
+				
+				//updateSrv.request.knowledge = update_knowledge_client;
+				if (!update_knowledge_client.call(updateSrv)) {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the goal (examined %s) to the knowledge base.", object_predicate.c_str());
+					exit(-1);
+				}
+				ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (examined %s) to the knowledge base.", object_predicate.c_str());
 					/*
 					if (!found_suitable_observation_location)
 					{

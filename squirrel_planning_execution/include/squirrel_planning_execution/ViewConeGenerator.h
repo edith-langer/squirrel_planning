@@ -55,6 +55,15 @@ namespace KCL_rosplan {
 		 * @return True if this point is within @ref{min_distance} of an obstacle, false otherwise.
 		 */
 		bool isBlocked(const geometry_msgs::Point& point, float min_distance) const;
+		
+		/**
+		 * Get the minimal distance to a blocked part of the scene. @ref{max_distance} is the maximum 
+		 * distance that is checked from @ref{point}.
+		 * @param Point The location to check.
+		 * @param max_distance The maximum distance from @ref{point} that is checked.
+		 * @return The closest distance to a blocked cell, std::numeric_limits<float>::max if none is found.
+		 */
+		float minDistanceToBlocked(const geometry_msgs::Point& point, float max_distance) const;
 	private:
 		
 		/**
