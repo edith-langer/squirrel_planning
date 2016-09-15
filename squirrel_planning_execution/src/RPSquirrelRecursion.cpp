@@ -791,12 +791,12 @@ namespace KCL_rosplan {
 			exit(-1);
 		}
 		
-		std::vector<geometry_msgs::Pose> toy_locations;
-		while (toy_locations.size() < number_of_toys)
+		std::vector<geometry_msgs::Pose> toy_poses;
+		while (toy_poses.size() < number_of_toys)
 		{
 			std::stringstream bb_name;
 			bb_name << "/squirrel_interface_recursion/toy_p";
-			bb_name << toy_locations.size();
+			bb_name << toy_poses.size();
 			
 			if (!node_handle->hasParam(bb_name.str()))
 			{
@@ -826,11 +826,11 @@ namespace KCL_rosplan {
 			model_pose.position.z = ::atof(elements[2].c_str());
 			
 			ROS_INFO("KCL: (RPSquirrelRecursion) Found toy coordinate (%f, %f, %f)", ::atof(elements[0].c_str()), ::atof(elements[1].c_str()), ::atof(elements[2].c_str()));
-			toy_locations.push_back(model_pose);
+			toy_poses.push_back(model_pose);
 		}
 		
 		// Spawn a certain number of objects in Gazebo.
-		while (toy_locations.size() < number_of_toys)
+		while (toy_poses.size() < number_of_toys)
 		{
 			// Find a pose.
 			tf::Vector3 toy_location;
@@ -846,9 +846,9 @@ namespace KCL_rosplan {
 				valid_location = !view_cone_generator->isBlocked(p, 1.0f);
 				
 				// Check if this object is too close to another object.
-				for (unsigned int i = 0; i < toy_locations.size(); ++i)
+				for (unsigned int i = 0; i < toy_poses.size(); ++i)
 				{
-					const geometry_msgs::Pose& model_pose = toy_locations[i];
+					const geometry_msgs::Pose& model_pose = toy_poses[i];
 					float distance = sqrt((model_pose.position.x - toy_location.x()) * (model_pose.position.x - toy_location.x()) + (model_pose.position.y - toy_location.y()) * (model_pose.position.y - toy_location.y()));
 					if (distance < 0.5f) valid_location = false;
 				}
@@ -866,14 +866,14 @@ namespace KCL_rosplan {
 			
 			ROS_INFO("KCL: (RPSquirrelRecursion) Random sampled toy coordinate (%f, %f, %f)", model_pose.position.x, model_pose.position.y, model_pose.position.z);
 			
-			toy_locations.push_back(model_pose);
+			toy_poses.push_back(model_pose);
 		}
 		
 		if (spawn_objects)
 		{
-			for (unsigned int i = 0; i < toy_locations.size(); ++i)
+			for (unsigned int i = 0; i < toy_poses.size(); ++i)
 			{
-				const geometry_msgs::Pose& model_pose = toy_locations[i];
+				const geometry_msgs::Pose& model_pose = toy_poses[i];
 				std::stringstream ss_object_name;
 				ss_object_name << "Box" << i;
 				
@@ -890,6 +890,9 @@ namespace KCL_rosplan {
 					exit(-1);
 				}
 				ROS_INFO("KCL: (RPSquirrelRecursion) Object spawned at (%f, %f, %f)!", model_pose.position.x, model_pose.position.y, model_pose.position.z);
+				
+				ToyState toy_state(model_pose.position);
+				toy_locations.push_back(toy_state);
 			}
 		}
 	}
