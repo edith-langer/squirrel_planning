@@ -192,6 +192,38 @@ namespace KCL_rosplan {
 			for (; ci != examine_action_client.getResult()->objects_added.end(); ++ci) {
 				squirrel_object_perception_msgs::SceneObject so = (*ci);
 				addObject(so);
+				
+				// update examined in the knowledge base .
+				rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+				rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
+				knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+				knowledge_item.attribute_name = "examined";
+				knowledge_item.is_negative = false;
+
+				diagnostic_msgs::KeyValue kv;
+				kv.key = "o";
+				kv.value = so.id;
+				knowledge_item.values.push_back(kv);
+
+				knowledge_update_service.request.knowledge = knowledge_item;
+				if (!update_knowledge_client.call(knowledge_update_service)) {
+					ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not add the examined predicate to the knowledge base.");
+					exit(-1);
+				}
+				ROS_INFO("KCL: (ClassifyObjectPDDLAction) Added %s (examined %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", so.id.c_str());
+			
+				// Remove the opposite option from the knowledge base.
+				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
+				knowledge_item.is_negative = !knowledge_item.is_negative;
+				knowledge_update_service.request.knowledge = knowledge_item;
+				if (!update_knowledge_client.call(knowledge_update_service)) {
+					ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not remove the examined predicate to the knowledge base.");
+					exit(-1);
+				}
+				ROS_INFO("KCL: (ClassifyObjectPDDLAction) Removed %s (examined %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", so.id.c_str());
+			
+				knowledge_item.values.clear();
 			}
 
 			// update all new objects
@@ -199,6 +231,38 @@ namespace KCL_rosplan {
 			for (; ci != examine_action_client.getResult()->objects_updated.end(); ++ci) {
 				squirrel_object_perception_msgs::SceneObject so = (*ci);
 				updateObject(so, explored_waypoint);
+				
+				// update examined in the knowledge base .
+				rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+				rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
+				knowledge_item.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+				knowledge_item.attribute_name = "examined";
+				knowledge_item.is_negative = false;
+
+				diagnostic_msgs::KeyValue kv;
+				kv.key = "o";
+				kv.value = so.id;
+				knowledge_item.values.push_back(kv);
+
+				knowledge_update_service.request.knowledge = knowledge_item;
+				if (!update_knowledge_client.call(knowledge_update_service)) {
+					ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not add the examined predicate to the knowledge base.");
+					exit(-1);
+				}
+				ROS_INFO("KCL: (ClassifyObjectPDDLAction) Added %s (examined %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", so.id.c_str());
+			
+				// Remove the opposite option from the knowledge base.
+				knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
+				knowledge_item.is_negative = !knowledge_item.is_negative;
+				knowledge_update_service.request.knowledge = knowledge_item;
+				if (!update_knowledge_client.call(knowledge_update_service)) {
+					ROS_ERROR("KCL: (ClassifyObjectPDDLAction) Could not remove the examined predicate to the knowledge base.");
+					exit(-1);
+				}
+				ROS_INFO("KCL: (ClassifyObjectPDDLAction) Removed %s (examined %s) to the knowledge base.", knowledge_item.is_negative ? "NOT" : "", so.id.c_str());
+			
+				knowledge_item.values.clear();
 			}
 			
 			// publish feedback
