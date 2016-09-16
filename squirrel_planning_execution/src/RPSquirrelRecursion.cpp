@@ -168,7 +168,7 @@ namespace KCL_rosplan {
 		std::vector< boost::shared_ptr<squirrel_object_perception_msgs::SceneObject> > sceneObjects_results;
 		message_store.query<squirrel_object_perception_msgs::SceneObject>(sceneObjects_results);
 
-		ROS_INFO("KCL: (RPSquirrelRecursion) Check if the task if achieved for the action %s.", action_name.c_str());
+		//ROS_INFO("KCL: (RPSquirrelRecursion) Check if the task if achieved for the action %s.", action_name.c_str());
 		
 		unsigned int found_unexplored_lumps = 0;
 		
@@ -180,7 +180,7 @@ namespace KCL_rosplan {
 			std::stringstream lump_wp_name_ss;
 			lump_wp_name_ss << lump_name << "_observation_wp";
 			
-			ROS_INFO("KCL: (RPSquirrelRecursion) Check if the lump %s has been examined.", lump_name.c_str());
+			//ROS_INFO("KCL: (RPSquirrelRecursion) Check if the lump %s has been examined.", lump_name.c_str());
 			
 			// Check if: 1) This waypoint has been observed; and 2) The lump is near an actual object.
 			const geometry_msgs::Pose& pose = lump.pose;
@@ -196,7 +196,7 @@ namespace KCL_rosplan {
 				delta.z =  pose.position.z - toy_location.z;
 				float distance = sqrt(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 				
-				ROS_INFO("KCL: (RPSquirrelRecursion) The lump is at (%f, %f, %f), existing toy is at (%f, %f, %f). Distance = %f.", pose.position.x, pose.position.y, pose.position.z, toy_location.x, toy_location.y, toy_location.z, distance);
+				//ROS_INFO("KCL: (RPSquirrelRecursion) The lump is at (%f, %f, %f), existing toy is at (%f, %f, %f). Distance = %f.", pose.position.x, pose.position.y, pose.position.z, toy_location.x, toy_location.y, toy_location.z, distance);
 				
 				if (distance < 0.5f)
 				{
