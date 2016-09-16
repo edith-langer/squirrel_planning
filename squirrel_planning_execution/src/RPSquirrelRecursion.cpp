@@ -359,6 +359,19 @@ namespace KCL_rosplan {
 			ros::spinOnce();
 			loop_rate.sleep();
 			
+			if (taskAchieved("examine_area")) {
+				planner_instance.stopPlanner();
+					
+				for (std::vector<ToyState>::const_iterator ci = toy_locations.begin(); ci != toy_locations.end(); ++ci)
+				{
+					const ToyState& toy_state = *ci;
+					std::cout << "Time to find: " << toy_state.name_ << " " << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
+				}
+				std::cout << "Total time: " << ros::Time::now().toSec() - start_time.toSec() << std::endl;
+				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << number_of_toys << "; Fails: " << number_of_segmentation_actions - number_of_segmentation_actions << "; " << (number_of_toys / number_of_segmentation_actions) * 100.0f << "%" << std::endl;
+				exit(0);
+			}
+			
 			if (taskAchieved(action_name))
 			{
 				completed_task = true;
@@ -374,7 +387,7 @@ namespace KCL_rosplan {
 					for (std::vector<ToyState>::const_iterator ci = toy_locations.begin(); ci != toy_locations.end(); ++ci)
 					{
 						const ToyState& toy_state = *ci;
-						std::cout << "Time to find: " << toy_state.name_ << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
+						std::cout << "Time to find: " << toy_state.name_ << " " << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
 					}
 					std::cout << "Total time: " << ros::Time::now().toSec() - start_time.toSec() << std::endl;
 					std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << number_of_toys << "; Fails: " << number_of_segmentation_actions - number_of_segmentation_actions << "; " << (number_of_toys / number_of_segmentation_actions) * 100.0f << "%" << std::endl;
