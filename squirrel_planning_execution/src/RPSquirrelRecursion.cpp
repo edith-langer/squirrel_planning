@@ -889,14 +889,15 @@ namespace KCL_rosplan {
 			toy_poses.push_back(model_pose);
 		}
 		
-		if (spawn_objects)
+		
+		for (unsigned int i = 0; i < toy_poses.size(); ++i)
 		{
-			for (unsigned int i = 0; i < toy_poses.size(); ++i)
+			const geometry_msgs::Pose& model_pose = toy_poses[i];
+			std::stringstream ss_object_name;
+			ss_object_name << "Box" << i;
+			
+			if (spawn_objects)
 			{
-				const geometry_msgs::Pose& model_pose = toy_poses[i];
-				std::stringstream ss_object_name;
-				ss_object_name << "Box" << i;
-				
 				gazebo_msgs::SpawnModel spawn_model;
 				spawn_model.request.model_name = ss_object_name.str().c_str();
 				spawn_model.request.model_xml = model_xml_ss.str();
@@ -910,10 +911,9 @@ namespace KCL_rosplan {
 					exit(-1);
 				}
 				ROS_INFO("KCL: (RPSquirrelRecursion) Object spawned at (%f, %f, %f)!", model_pose.position.x, model_pose.position.y, model_pose.position.z);
-				
-				ToyState toy_state(model_pose.position, ss_object_name.str());
-				toy_locations.push_back(toy_state);
 			}
+			ToyState toy_state(model_pose.position, ss_object_name.str());
+			toy_locations.push_back(toy_state);
 		}
 	}
 	
