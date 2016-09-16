@@ -180,7 +180,7 @@ namespace KCL_rosplan {
 			std::stringstream lump_wp_name_ss;
 			lump_wp_name_ss << lump_name << "_observation_wp";
 			
-//			ROS_INFO("KCL: (RPSquirrelRecursion) Check if the lump waypoint %s has been explored.", lump_wp_name_ss.str().c_str());
+			//ROS_INFO("KCL: (RPSquirrelRecursion) Check if the lump %s has been examined.", lump_name.c_str());
 			
 			// Check if: 1) This waypoint has been observed; and 2) The lump is near an actual object.
 			const geometry_msgs::Pose& pose = lump.pose;
@@ -196,7 +196,7 @@ namespace KCL_rosplan {
 				delta.z =  pose.position.z - toy_location.z;
 				float distance = sqrt(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 				
-//				ROS_INFO("KCL: (RPSquirrelRecursion) The lump is at (%f, %f, %f), existing toy is at (%f, %f, %f). Distance = %f.", pose.position.x, pose.position.y, pose.position.z, toy_location.x, toy_location.y, toy_location.z, distance);
+				//ROS_INFO("KCL: (RPSquirrelRecursion) The lump is at (%f, %f, %f), existing toy is at (%f, %f, %f). Distance = %f.", pose.position.x, pose.position.y, pose.position.z, toy_location.x, toy_location.y, toy_location.z, distance);
 				
 				if (distance < 0.5f)
 				{
@@ -359,6 +359,19 @@ namespace KCL_rosplan {
 			ros::spinOnce();
 			loop_rate.sleep();
 			
+			if (taskAchieved("examine_area")) {
+				planner_instance.stopPlanner();
+					
+				for (std::vector<ToyState>::const_iterator ci = toy_locations.begin(); ci != toy_locations.end(); ++ci)
+				{
+					const ToyState& toy_state = *ci;
+					std::cout << "Time to find: " << toy_state.name_ << " " << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
+				}
+				std::cout << "Total time: " << ros::Time::now().toSec() - start_time.toSec() << std::endl;
+				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << number_of_toys << "; Fails: " << number_of_segmentation_actions - number_of_segmentation_actions << "; " << (number_of_toys / number_of_segmentation_actions) * 100.0f << "%" << std::endl;
+				exit(0);
+			}
+			
 			if (taskAchieved(action_name))
 			{
 				completed_task = true;
@@ -374,7 +387,7 @@ namespace KCL_rosplan {
 					for (std::vector<ToyState>::const_iterator ci = toy_locations.begin(); ci != toy_locations.end(); ++ci)
 					{
 						const ToyState& toy_state = *ci;
-						std::cout << "Time to find: " << toy_state.name_ << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
+						std::cout << "Time to find: " << toy_state.name_ << " " << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
 					}
 					std::cout << "Total time: " << ros::Time::now().toSec() - start_time.toSec() << std::endl;
 					std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << number_of_toys << "; Fails: " << number_of_segmentation_actions - number_of_segmentation_actions << "; " << (number_of_toys / number_of_segmentation_actions) * 100.0f << "%" << std::endl;
@@ -425,7 +438,7 @@ namespace KCL_rosplan {
 				exit(-1);
 			}
 			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (explored %s) predicate from the knowledge base.", area.c_str());
-			
+			/*
 			kenny_knowledge.attribute_name = "examined";
 			knowledge_update_service.request.knowledge = kenny_knowledge;
 			if (!update_knowledge_client.call(knowledge_update_service)) {
@@ -433,7 +446,7 @@ namespace KCL_rosplan {
 				exit(-1);
 			}
 			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (examined %s) predicate from the knowledge base.", area.c_str());
-			
+			*/
 			kenny_knowledge.values.clear();
 			/*
 			// Remove all previous explored waypoints.
@@ -889,14 +902,15 @@ namespace KCL_rosplan {
 			toy_poses.push_back(model_pose);
 		}
 		
-		if (spawn_objects)
+		
+		for (unsigned int i = 0; i < toy_poses.size(); ++i)
 		{
-			for (unsigned int i = 0; i < toy_poses.size(); ++i)
+			const geometry_msgs::Pose& model_pose = toy_poses[i];
+			std::stringstream ss_object_name;
+			ss_object_name << "Box" << i;
+			
+			if (spawn_objects)
 			{
-				const geometry_msgs::Pose& model_pose = toy_poses[i];
-				std::stringstream ss_object_name;
-				ss_object_name << "Box" << i;
-				
 				gazebo_msgs::SpawnModel spawn_model;
 				spawn_model.request.model_name = ss_object_name.str().c_str();
 				spawn_model.request.model_xml = model_xml_ss.str();
@@ -910,10 +924,9 @@ namespace KCL_rosplan {
 					exit(-1);
 				}
 				ROS_INFO("KCL: (RPSquirrelRecursion) Object spawned at (%f, %f, %f)!", model_pose.position.x, model_pose.position.y, model_pose.position.z);
-				
-				ToyState toy_state(model_pose.position, ss_object_name.str());
-				toy_locations.push_back(toy_state);
 			}
+			ToyState toy_state(model_pose.position, ss_object_name.str());
+			toy_locations.push_back(toy_state);
 		}
 	}
 	
