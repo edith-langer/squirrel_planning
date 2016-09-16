@@ -425,7 +425,7 @@ namespace KCL_rosplan {
 				exit(-1);
 			}
 			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (explored %s) predicate from the knowledge base.", area.c_str());
-			
+			/*
 			kenny_knowledge.attribute_name = "examined";
 			knowledge_update_service.request.knowledge = kenny_knowledge;
 			if (!update_knowledge_client.call(knowledge_update_service)) {
@@ -433,7 +433,7 @@ namespace KCL_rosplan {
 				exit(-1);
 			}
 			ROS_INFO("KCL: (RPSquirrelRecursion) Removed the (examined %s) predicate from the knowledge base.", area.c_str());
-			
+			*/
 			kenny_knowledge.values.clear();
 			/*
 			// Remove all previous explored waypoints.
