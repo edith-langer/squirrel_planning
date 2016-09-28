@@ -112,11 +112,4 @@
 	    <param name="viewcone_sample_size" value="1000" type="int" />
 	    <param name="viewcone_safe_distance" value="0.5" type="double" />
 	</node>
-
-	<node name="squirrel_perception_waypoints_server" pkg="squirrel_perception_waypoint" type="squirrel_perception_waypoints_server" required="true">
-	    <param name="nr_waypoints" value="5" type="int" />
-	    <param name="distance_to_lump" value="0.50" type="double" />
-	    <param name="static_octomap_path" value="$(find squirrel_object_perception)/data/octomaps/ipa_room_dilated.bt" />
-	</node>
-
 </launch>
