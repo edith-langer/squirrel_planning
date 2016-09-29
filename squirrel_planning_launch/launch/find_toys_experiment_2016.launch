@@ -1,5 +1,5 @@
 <launch>
-	<!-- domain file -->
+	!-- domain file -->
 	<param name="data_path" value="$(find squirrel_planning_launch)/common/" />
 	<param name="planner_path" value="$(find rosplan_planning_system)/common/bin/" />
 
@@ -90,7 +90,7 @@
             <param name="stop_when_enough_lumps_found" value="true" type="bool" />
 	    <!-- spawn objects in gazebo -->
             <param name="spawn_objects" value="true" type="bool" />
-            <param name="model_file_name" value="/home/bram/.gazebo/models/beer/model.sdf" />
+            <param name="model_file_name" value="/home/edith/.gazebo/models/beer/model.sdf" />
             <!-- locations of toys to be placed -->
 	    <param name="toy_p0" value="-0.16,-2.82,0.0" />
 	    <param name="toy_p1" value="4.76,-4.02,0.0" />
@@ -112,9 +112,4 @@
 	    <param name="viewcone_sample_size" value="1000" type="int" />
 	    <param name="viewcone_safe_distance" value="0.5" type="double" />
 	</node>
-
-	<node name="squirrel_perception_waypoints_server" pkg="squirrel_perception_waypoint" type="squirrel_perception_waypoints_server" required="true">
-
-	</node>
-
 </launch>
