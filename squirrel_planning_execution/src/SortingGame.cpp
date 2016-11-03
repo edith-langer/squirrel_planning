@@ -501,7 +501,7 @@ namespace KCL_rosplan {
 		plan_action_client.sendGoal(psrv);
 		ROS_INFO("KCL: (SortingGame) Goal sent");
 */
-		ros::spin();
+		while(ros::ok() && ros::master::check()){ros::spinOnce();}
 		return 0;
 	}
 	

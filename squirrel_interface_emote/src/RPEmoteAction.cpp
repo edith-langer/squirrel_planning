@@ -96,6 +96,6 @@ namespace KCL_rosplan {
 	
 		ROS_INFO("KCL: (RPEmoteAction) Ready to receive");
 
-		ros::spin();
+		while(ros::ok() && ros::master::check()){ros::spinOnce();}
 		return 0;
 	}

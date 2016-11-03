@@ -75,6 +75,6 @@ int main(int argc, char **argv) {
 
 	ROS_INFO("KCL: (SimulatedPDDLActionsNode) All simulated actions are ready to receive.");
 	
-	ros::spin();
+	while(ros::ok() && ros::master::check()){ros::spinOnce();}
 	return 0;
 }

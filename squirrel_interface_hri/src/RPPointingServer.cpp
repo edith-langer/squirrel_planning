@@ -258,6 +258,6 @@ int main(int argc, char **argv) {
 	ros::Subscriber ds = nh.subscribe("/kcl_rosplan/action_dispatch", 1000, &KCL_rosplan::RPPointingServer::dispatchCallback, &rpps);
 	ROS_INFO("KCL: (PointingServer) Ready to receive");
 
-	ros::spin();
+	while(ros::ok() && ros::master::check()){ros::spinOnce();}
 	return 0;
 }

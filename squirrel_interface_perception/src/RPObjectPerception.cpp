@@ -205,6 +205,6 @@ namespace KCL_rosplan {
 		KCL_rosplan::RPObjectPerception rms(nh, dataPath);
 
 		ROS_INFO("KCL: (RPObjectPerception) Ready to receive");
-		ros::spin();
+		while(ros::ok() && ros::master::check()){ros::spinOnce();}
 		return 0;
 	}

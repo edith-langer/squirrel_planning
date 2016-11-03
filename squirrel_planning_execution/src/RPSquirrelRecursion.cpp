@@ -42,6 +42,9 @@ namespace KCL_rosplan {
 		// Check wheter toys need to be spawned in Gazebo.
 		bool spawn_objects = false;
 		node_handle->getParam("/squirrel_interface_recursion/spawn_objects", spawn_objects);
+
+		if (spawn_objects)
+			std::cout << "----- Spawn objects ! -----" << std::endl;
 		
 		// Read the file containing the model (if we need to spawn them).
 		std::string model_file_name;
@@ -68,6 +71,9 @@ namespace KCL_rosplan {
 				exit(-1);
 			}
 		}
+
+		std::cout << "Model name: " << model_file_name << std::endl;
+		std::cout << "Number of toys: " << number_of_toys_to_find << std::endl;
 		
 		// Read the poses of the toys from the launch file.
 		std::vector<geometry_msgs::Pose> toy_poses;
@@ -261,7 +267,7 @@ namespace KCL_rosplan {
 		}
 		
 		// Check if we are done.
-		if (classified_objects == number_of_toys_to_find)
+		if (classified_objects >= number_of_toys_to_find)
 		{
 			ROS_INFO("KCL: (RPSquirrelRecursion) All objects are classified.");
 			is_complete = true;
@@ -514,7 +520,8 @@ namespace KCL_rosplan {
 					std::cout << "Time to find: " << toy_state.name_ << " " << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
 				}
 				std::cout << "Total time: " << ros::Time::now().toSec() - start_time.toSec() << std::endl;
-				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << task_state_monitor->getNumberOfToysToFind() << "; Fails: " << number_of_segmentation_actions - number_of_segmentation_actions << "; " << (task_state_monitor->getNumberOfToysToFind() / number_of_segmentation_actions) * 100.0f << "%" << std::endl;
+				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << task_state_monitor->getNumberOfToysToFind() << "; Fails: " << number_of_segmentation_actions - number_of_segmentation_actions << "; " << (number_of_segmentation_actions == 0 ? 0 : (task_state_monitor->getNumberOfToysToFind() / number_of_segmentation_actions) * 100.0f) << "%" << std::endl;
+				ros::shutdown();
 				exit(0);
 			}
 			
@@ -1208,7 +1215,7 @@ namespace KCL_rosplan {
 		plan_action_client.sendGoal(psrv);
 		ROS_INFO("KCL: (RPSquirrelRecursion) Goal sent");
 
-		ros::spin();
+		while(ros::ok() && ros::master::check()){ros::spinOnce();}
 		return 0;
 	}
 	

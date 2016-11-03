@@ -217,6 +217,6 @@ namespace KCL_rosplan {
 		ros::Subscriber map_sub = nh.subscribe<nav_msgs::OccupancyGrid>(costMapTopic, 1, &KCL_rosplan::RPSquirrelRoadmap::costMapCallback, &sms);
 
 		ROS_INFO("KCL: (RPSquirrelRoadmap) Ready to receive.");
-		ros::spin();
+		while(ros::ok() && ros::master::check()){ros::spinOnce();}
 		return 0;
 	}

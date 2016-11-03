@@ -509,6 +509,6 @@ namespace KCL_rosplan {
 		ros::Subscriber ds = nh.subscribe("/kcl_rosplan/action_dispatch", 1000, &KCL_rosplan::RPPerceptionAction::dispatchCallback, &rppa);
 		ROS_INFO("KCL: (PerceptionAction) Ready to receive");
 
-		ros::spin();
+		while(ros::ok() && ros::master::check()){ros::spinOnce();}
 		return 0;
 	}
