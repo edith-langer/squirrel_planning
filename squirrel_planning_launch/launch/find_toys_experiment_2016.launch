@@ -62,7 +62,7 @@
 	</node>
 
 	<!-- simulation acitons (ALL TRUE) -->
-	<node name="simulated_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen">
+	<!--node name="simulated_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen">
 		<param name="query_user" value="false" />
 		<param name="simulate_goto_waypoint" value="true"/>
 		<param name="simulate_explore_waypoint" value="true"/>
@@ -71,7 +71,7 @@
 		<param name="simulate_put_object_in_box" value="true"/>
 		<param name="simulate_pickup_object" value="true"/>
 		<param name="simulate_drop_object" value="true"/>
-	</node>
+	</node-->
 
 	<node name="squirrel_interface_mapping" pkg="squirrel_planning_execution" type="rpsquirrelRoadmap" respawn="false" output="screen">
 	    <param name="data_path" value="$(find squirrel_planning_launch)/common/" />
