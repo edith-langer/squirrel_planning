@@ -68,7 +68,7 @@ namespace KCL_rosplan {
 	/* action dispatch callback; explore action */
 	void RPPerceptionAction::exploreActionDynamic(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
 
-		ROS_INFO("KCL: (PerceptionAction) explore action recieved");
+		ROS_INFO("KCL: (PerceptionAction) explore action recieved - dynamic");
 
 		// get waypoint ID from action dispatch
 		std::string explored_waypoint;
@@ -92,6 +92,8 @@ namespace KCL_rosplan {
 		if (!find_dynamic_objects_client.call(fdSrv)) {
 			ROS_ERROR("KCL: (PerceptionAction) Could not call the find_dynamic_objects service.");
 		}
+
+		ROS_INFO("KCL: (PerceptionAction) Number of objects added: %zd; Updated: %zd; Deleted: %zd.", fdSrv.response.dynamic_objects_added.size(), fdSrv.response.dynamic_objects_updated.size(), fdSrv.response.dynamic_objects_removed.size());
 
 		// add all new objects
 		std::vector<squirrel_object_perception_msgs::SceneObject>::const_iterator ci = fdSrv.response.dynamic_objects_added.begin();
@@ -140,7 +142,7 @@ namespace KCL_rosplan {
 	 */
 	void RPPerceptionAction::exploreActionStatic(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
 
-		ROS_INFO("KCL: (PerceptionAction) explore action recieved");
+		ROS_INFO("KCL: (PerceptionAction) explore action recieved - static");
 
 		// get waypoint ID from action dispatch
 		std::string explored_waypoint;
@@ -168,6 +170,9 @@ namespace KCL_rosplan {
 		actionlib::SimpleClientGoalState state = examine_action_client.getState();
 		bool success =  (state == actionlib::SimpleClientGoalState::SUCCEEDED);
 		ROS_INFO("KCL: (PerceptionAction) check object finished: %s", state.toString().c_str());
+		ROS_INFO("KCL: (PerceptionAction) Number of objects added: %zd; Updated: %zd.", examine_action_client.getResult()->objects_added.size(), examine_action_client.getResult()->objects_updated.size());
+
+
 
 		// add the new knowledge
 		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
