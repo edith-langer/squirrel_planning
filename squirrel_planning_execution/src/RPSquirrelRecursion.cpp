@@ -279,7 +279,7 @@ namespace KCL_rosplan {
 		
 		if (found_unexplored_lumps >= number_of_toys_to_find)
 		{
-			ROS_INFO("KCL: (RPSquirrelRecursion) We have found enough unidentified lumps to start the examination phase.");
+			//ROS_INFO("KCL: (RPSquirrelRecursion) We have found enough unidentified lumps to start the examination phase.");
 			enough_unexplored_lumps_found = true;
 		}
 		else
@@ -543,8 +543,8 @@ namespace KCL_rosplan {
 		// Check if we achieved the (sub-)task at the end of execution. If not, we trigger a replan. We alter 
 		// the knoweldge base such that we start exploring the room given new viewcones.
 		task_state_monitor->updateState();
-		if (!task_state_monitor->enoughLumpsFound() && "explore_area" == action_name ||
-		    !task_state_monitor->isComplete())
+		if ((!task_state_monitor->enoughLumpsFound() && "explore_area" == action_name) ||
+		    (!task_state_monitor->enoughLumpsFound() && !task_state_monitor->isComplete()))	
 		{
 			last_received_msg.clear();
 			
@@ -646,7 +646,9 @@ namespace KCL_rosplan {
 		}
 		
 		// If an action was successful we update the knowledge base with the next predicates that are now true.
-		if(state == actionlib::SimpleClientGoalState::SUCCEEDED)
+		if(state == actionlib::SimpleClientGoalState::SUCCEEDED ||
+		   ("explore_area" == action_name && task_state_monitor->enoughLumpsFound())
+		)
 		{
 			// Update the knowledge base with what has been achieved.
 			if ("explore_area" == action_name)
