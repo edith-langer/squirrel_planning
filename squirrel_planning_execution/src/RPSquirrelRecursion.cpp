@@ -522,7 +522,7 @@ namespace KCL_rosplan {
 					std::cout << "Time to find: " << toy_state.name_ << " " << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
 				}
 				std::cout << "Total time: " << ros::Time::now().toSec() - start_time.toSec() << std::endl;
-				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << task_state_monitor->getNumberOfToysToFind() << "; Fails: " << number_of_segmentation_actions - number_of_segmentation_actions << "; " << (number_of_segmentation_actions == 0 ? 0 : (task_state_monitor->getNumberOfToysToFind() / number_of_segmentation_actions) * 100.0f) << "%" << std::endl;
+				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << task_state_monitor->getNumberOfToysToFind() << "; Fails: " << number_of_segmentation_actions - task_state_monitor->getNumberOfToysToFind() << "; " << (number_of_segmentation_actions == 0 ? 0 : (task_state_monitor->getNumberOfToysToFind() / number_of_segmentation_actions) * 100.0f) << "%" << std::endl;
 				ros::shutdown();
 				exit(0);
 			}
