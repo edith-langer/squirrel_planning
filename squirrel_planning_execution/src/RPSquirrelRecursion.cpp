@@ -446,7 +446,7 @@ namespace KCL_rosplan {
 			return;
 		}
 		
-		if ("examine_object" == action_name)
+		if ("examine_object" == action_name || "explore_waypoint" == action_name)
 		{
 			++number_of_segmentation_actions;
 		}
@@ -1102,7 +1102,14 @@ namespace KCL_rosplan {
 				std::string id(message_store.insertNamed(ss.str(), best_pose));
 				
 				ROS_INFO("KCL: (RPSquirrelRecursion) Best pose: (%f, %f, %f) Q=[%f, %f, %f, %f], distance to an obstacle: %f", best_pose.pose.position.x, best_pose.pose.position.y, best_pose.pose.position.z, best_pose.pose.orientation.x, best_pose.pose.orientation.y, best_pose.pose.orientation.z, best_pose.pose.orientation.w, max_distance);
-	
+				
+				tf::Quaternion q(best_pose.pose.orientation.x, best_pose.pose.orientation.y, best_pose.pose.orientation.z, best_pose.pose.orientation.w);
+				tf::Matrix3x3 m(q);
+				double roll, pitch, yaw;
+				m.getRPY(roll, pitch, yaw);
+				
+				ROS_INFO("KCL: (RPSquirrelRecursion) Roll: %f, Pitch: %f, Yaw: %f\n", roll, pitch, yaw);
+				
 				rosplan_knowledge_msgs::KnowledgeUpdateService updateSrv;
 				updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
 				updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
