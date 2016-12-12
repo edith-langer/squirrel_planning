@@ -893,6 +893,20 @@ namespace KCL_rosplan {
 		}
 		ROS_INFO("KCL: (TidyRooms) Added (robot_at kenny room) to the knowledge base.");
 		waypoint_knowledge.values.clear();
+		
+		// Setup the camera.
+		waypoint_knowledge.attribute_name = "camera_neutral";
+		waypoint_knowledge.is_negative = false;
+		kv.key = "v";
+		kv.value = "kenny";
+		waypoint_knowledge.values.push_back(kv);
+		add_waypoints_service.request.knowledge = waypoint_knowledge;
+		if (!update_knowledge_client.call(add_waypoints_service)) {
+			ROS_ERROR("KCL: (TidyRooms) Could not add the fact (camera_neutral kenny) to the knowledge base.");
+			exit(-1);
+		}
+		ROS_INFO("KCL: (TidyRooms) Added (camera_neutral kenny) to the knowledge base.");
+		waypoint_knowledge.values.clear();
 	}
 	
 	bool RPSquirrelRecursion::createDomain(const std::string& action_name)
@@ -1081,6 +1095,7 @@ namespace KCL_rosplan {
 				best_pose.header.seq = 0;
 				best_pose.header.frame_id = "/map";
 				best_pose.header.stamp = ros::Time::now();
+				std_msgs::Float64 best_angle;
 				
 				float max_distance = -std::numeric_limits<float>::max();
 				
@@ -1095,13 +1110,18 @@ namespace KCL_rosplan {
 					{
 						max_distance = distance;
 						best_pose.pose = getTaskPose.response.poses[i].pose.pose;
+						best_angle.data = getTaskPose.response.tiltAngle[i];
 					}
 				}
 				
 				// Store the best pose in the message_store.
 				std::string id(message_store.insertNamed(ss.str(), best_pose));
-				
-				ROS_INFO("KCL: (RPSquirrelRecursion) Best pose: (%f, %f, %f) Q=[%f, %f, %f, %f], distance to an obstacle: %f", best_pose.pose.position.x, best_pose.pose.position.y, best_pose.pose.position.z, best_pose.pose.orientation.x, best_pose.pose.orientation.y, best_pose.pose.orientation.z, best_pose.pose.orientation.w, max_distance);
+				{
+				std::stringstream angle_ss;
+				angle_ss << ss.str() << "_angle";
+				std::string id(message_store.insertNamed(angle_ss.str(), best_angle));
+				}
+				ROS_INFO("KCL: (RPSquirrelRecursion) Best pose: (%f, %f, %f) Q=[%f, %f, %f, %f], distance to an obstacle: %f. Desired tilt angle: %f", best_pose.pose.position.x, best_pose.pose.position.y, best_pose.pose.position.z, best_pose.pose.orientation.x, best_pose.pose.orientation.y, best_pose.pose.orientation.z, best_pose.pose.orientation.w, max_distance, best_angle.data);
 				
 				tf::Quaternion q(best_pose.pose.orientation.x, best_pose.pose.orientation.y, best_pose.pose.orientation.z, best_pose.pose.orientation.w);
 				tf::Matrix3x3 m(q);
