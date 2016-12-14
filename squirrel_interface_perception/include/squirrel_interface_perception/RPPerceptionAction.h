@@ -29,6 +29,7 @@ namespace KCL_rosplan {
 		ros::ServiceClient find_dynamic_objects_client;
 		ros::ServiceClient add_object_client;
 		ros::ServiceClient update_knowledge_client;
+		ros::ServiceClient get_instance_client;
 
 		ros::Publisher action_feedback_pub;
 

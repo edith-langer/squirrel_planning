@@ -16,6 +16,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "rosplan_knowledge_msgs/KnowledgeUpdateService.h"
 #include "rosplan_knowledge_msgs/KnowledgeItem.h"
+#include "rosplan_knowledge_msgs/GetInstanceService.h"
 
 /* The implementation of RPMoveBase.h */
 namespace KCL_rosplan {
@@ -47,6 +48,7 @@ namespace KCL_rosplan {
 		action_feedback_pub = nh.advertise<rosplan_dispatch_msgs::ActionFeedback>("/kcl_rosplan/action_feedback", 10, true);
 		update_knowledge_client = nh.serviceClient<rosplan_knowledge_msgs::KnowledgeUpdateService>("/kcl_rosplan/update_knowledge_base");
 		find_dynamic_objects_client = nh.serviceClient<squirrel_object_perception_msgs::FindDynamicObjects>("/squirrel_find_dynamic_objects");
+		get_instance_client = nh.serviceClient<rosplan_knowledge_msgs::GetInstanceService>("/kcl_rosplan/get_current_instances");
 	}
 
 	/* action dispatch callback; parameters (?v - robot ?wp - waypoint) */
@@ -427,37 +429,42 @@ namespace KCL_rosplan {
 			ROS_ERROR("KCL: (PerceptionAction) Could not add object_at predicate to the knowledge base.");
 		}
 
-		// is_of_type fact	
-		knowledge_update_service.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-		knowledge_update_service.request.knowledge.attribute_name = "is_of_type";
-		knowledge_update_service.request.knowledge.values.pop_back();
-		kv.key = "t";
-                kv.value = "dinosaur";
-		knowledge_update_service.request.knowledge.values.push_back(kv);
-		knowledge_update_service.request.knowledge.is_negative = object.category.find("dinosaur") == std::string::npos;
-
-		if (knowledge_update_service.request.knowledge.is_negative)
-		{
-			ROS_INFO("KCL: (PerceptionAction) %s is NOT a dinosaur", object.id.c_str());
-		}
-		else
-		{
-			ROS_INFO("KCL: (PerceptionAction) %s IS a dinosaur", object.id.c_str());
-		}
-
-/*
-        // TODO remove this after demo
-        if(object.category.find("dinosaur") != std::string::npos)
-                kv.value = "dinosaur";
-        else kv.value = object.category;
-*/
+		// is_of_type fact
 		
-		if (!update_knowledge_client.call(knowledge_update_service)) {
-			ROS_ERROR("KCL: (PerceptionAction) Could not add is_of_type predicate to the knowledge base.");
+		// First we get all the possible types of toys that we can encounter.
+		rosplan_knowledge_msgs::GetInstanceService getInstances;
+		getInstances.request.type_name = "type";		
+		if (!get_instance_client.call(getInstances)) {
+			ROS_ERROR("KCL: (PerceptionAction) Failed to get all the type instances.");
+			return;
 		}
+		ROS_INFO("KCL: (PerceptionAction) Received all the type instances.");
+		for (std::vector<std::string>::const_iterator ci = getInstances.response.instances.begin(); ci != getInstances.response.instances.end(); ++ci)
+		{
+			const std::string& type = *ci;
+			
+			knowledge_update_service.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+			knowledge_update_service.request.knowledge.attribute_name = "is_of_type";
+			knowledge_update_service.request.knowledge.values.pop_back();
+			kv.key = "t";
+			kv.value = type;
+			knowledge_update_service.request.knowledge.values.push_back(kv);
+			knowledge_update_service.request.knowledge.is_negative = object.category != type;
 
-		// Add the opposite to the knowledge base.
-
+			if (knowledge_update_service.request.knowledge.is_negative)
+			{
+				ROS_INFO("KCL: (PerceptionAction) %s is NOT a %s", object.id.c_str(), type.c_str());
+			}
+			else
+			{
+				ROS_INFO("KCL: (PerceptionAction) %s IS a %s", object.id.c_str(), type.c_str());
+			}
+			
+			if (!update_knowledge_client.call(knowledge_update_service)) {
+				ROS_ERROR("KCL: (PerceptionAction) Could not add is_of_type predicate to the knowledge base.");
+			}
+		}
+		
 		//data
 		geometry_msgs::PoseStamped ps;
 		ps.header = object.header;
