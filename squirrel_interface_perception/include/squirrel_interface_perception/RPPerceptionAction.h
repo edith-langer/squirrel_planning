@@ -48,6 +48,7 @@ namespace KCL_rosplan {
 		void addObject(squirrel_object_perception_msgs::SceneObject &object);
 		void updateObject(squirrel_object_perception_msgs::SceneObject &object, std::string newWaypoint);
 		void removeObject(squirrel_object_perception_msgs::SceneObject &object);
+		void updateType(squirrel_object_perception_msgs::SceneObject &object);
 
 	public:
 

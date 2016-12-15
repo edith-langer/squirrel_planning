@@ -522,7 +522,7 @@ namespace KCL_rosplan {
 					std::cout << "Time to find: " << toy_state.name_ << " " << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
 				}
 				std::cout << "Total time: " << ros::Time::now().toSec() - start_time.toSec() << std::endl;
-				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << task_state_monitor->getNumberOfToysToFind() << "; Fails: " << number_of_segmentation_actions - task_state_monitor->getNumberOfToysToFind() << "; " << (number_of_segmentation_actions == 0 ? 0 : (task_state_monitor->getNumberOfToysToFind() / number_of_segmentation_actions) * 100.0f) << "%" << std::endl;
+				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << task_state_monitor->getNumberOfToysToFind() << "; Fails: " << number_of_segmentation_actions - task_state_monitor->getNumberOfToysToFind() << "; " << (number_of_segmentation_actions == 0 ? 0 : ((float)task_state_monitor->getNumberOfToysToFind() / (float)number_of_segmentation_actions) * 100.0f) << "%" << std::endl;
 				ros::shutdown();
 				exit(0);
 			}
@@ -993,6 +993,30 @@ namespace KCL_rosplan {
 				pose.header.frame_id = "/map";
 				pose.pose = *ci;
 				std::string id(message_store.insertNamed(ss.str(), pose));
+				
+				// Add the known types.
+				waypoint_knowledge.instance_type = "type";
+				waypoint_knowledge.instance_name = "type1";
+				add_waypoints_service.request.knowledge = waypoint_knowledge;
+				if (!update_knowledge_client.call(add_waypoints_service)) {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add a type to the knowledge base.");
+					exit(-1);
+				}
+				
+				waypoint_knowledge.instance_name = "type2";
+				add_waypoints_service.request.knowledge = waypoint_knowledge;
+				if (!update_knowledge_client.call(add_waypoints_service)) {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add a type to the knowledge base.");
+					exit(-1);
+				}
+				
+				rosplan_knowledge_msgs::GetInstanceService getInstances;
+				getInstances.request.type_name = "type";
+				if (!get_instance_client.call(getInstances)) {
+					ROS_ERROR("KCL: (PerceptionAction) Failed to get all the type instances.");
+					return false;
+				}
+				ROS_INFO("KCL: (PerceptionAction) Received %zd type instances.", getInstances.response.instances.size());
 				
 				// Setup the goal.
 				waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
