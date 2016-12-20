@@ -446,7 +446,7 @@ namespace KCL_rosplan {
 			return;
 		}
 		
-		if ("examine_object" == action_name)
+		if ("examine_object" == action_name || "explore_waypoint" == action_name)
 		{
 			++number_of_segmentation_actions;
 		}
@@ -522,7 +522,7 @@ namespace KCL_rosplan {
 					std::cout << "Time to find: " << toy_state.name_ << " " << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
 				}
 				std::cout << "Total time: " << ros::Time::now().toSec() - start_time.toSec() << std::endl;
-				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << task_state_monitor->getNumberOfToysToFind() << "; Fails: " << number_of_segmentation_actions - number_of_segmentation_actions << "; " << (number_of_segmentation_actions == 0 ? 0 : (task_state_monitor->getNumberOfToysToFind() / number_of_segmentation_actions) * 100.0f) << "%" << std::endl;
+				std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << task_state_monitor->getNumberOfToysToFind() << "; Fails: " << number_of_segmentation_actions - task_state_monitor->getNumberOfToysToFind() << "; " << (number_of_segmentation_actions == 0 ? 0 : ((float)task_state_monitor->getNumberOfToysToFind() / (float)number_of_segmentation_actions) * 100.0f) << "%" << std::endl;
 				ros::shutdown();
 				exit(0);
 			}
@@ -893,6 +893,20 @@ namespace KCL_rosplan {
 		}
 		ROS_INFO("KCL: (TidyRooms) Added (robot_at kenny room) to the knowledge base.");
 		waypoint_knowledge.values.clear();
+		
+		// Setup the camera.
+		waypoint_knowledge.attribute_name = "camera_neutral";
+		waypoint_knowledge.is_negative = false;
+		kv.key = "v";
+		kv.value = "kenny";
+		waypoint_knowledge.values.push_back(kv);
+		add_waypoints_service.request.knowledge = waypoint_knowledge;
+		if (!update_knowledge_client.call(add_waypoints_service)) {
+			ROS_ERROR("KCL: (TidyRooms) Could not add the fact (camera_neutral kenny) to the knowledge base.");
+			exit(-1);
+		}
+		ROS_INFO("KCL: (TidyRooms) Added (camera_neutral kenny) to the knowledge base.");
+		waypoint_knowledge.values.clear();
 	}
 	
 	bool RPSquirrelRecursion::createDomain(const std::string& action_name)
@@ -979,6 +993,30 @@ namespace KCL_rosplan {
 				pose.header.frame_id = "/map";
 				pose.pose = *ci;
 				std::string id(message_store.insertNamed(ss.str(), pose));
+				
+				// Add the known types.
+				waypoint_knowledge.instance_type = "type";
+				waypoint_knowledge.instance_name = "type1";
+				add_waypoints_service.request.knowledge = waypoint_knowledge;
+				if (!update_knowledge_client.call(add_waypoints_service)) {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add a type to the knowledge base.");
+					exit(-1);
+				}
+				
+				waypoint_knowledge.instance_name = "type2";
+				add_waypoints_service.request.knowledge = waypoint_knowledge;
+				if (!update_knowledge_client.call(add_waypoints_service)) {
+					ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add a type to the knowledge base.");
+					exit(-1);
+				}
+				
+				rosplan_knowledge_msgs::GetInstanceService getInstances;
+				getInstances.request.type_name = "type";
+				if (!get_instance_client.call(getInstances)) {
+					ROS_ERROR("KCL: (PerceptionAction) Failed to get all the type instances.");
+					return false;
+				}
+				ROS_INFO("KCL: (PerceptionAction) Received %zd type instances.", getInstances.response.instances.size());
 				
 				// Setup the goal.
 				waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
@@ -1081,6 +1119,7 @@ namespace KCL_rosplan {
 				best_pose.header.seq = 0;
 				best_pose.header.frame_id = "/map";
 				best_pose.header.stamp = ros::Time::now();
+				std_msgs::Float64 best_angle;
 				
 				float max_distance = -std::numeric_limits<float>::max();
 				
@@ -1095,14 +1134,26 @@ namespace KCL_rosplan {
 					{
 						max_distance = distance;
 						best_pose.pose = getTaskPose.response.poses[i].pose.pose;
+						best_angle.data = getTaskPose.response.tiltAngle[i];
 					}
 				}
 				
 				// Store the best pose in the message_store.
 				std::string id(message_store.insertNamed(ss.str(), best_pose));
+				{
+				std::stringstream angle_ss;
+				angle_ss << ss.str() << "_angle";
+				std::string id(message_store.insertNamed(angle_ss.str(), best_angle));
+				}
+				ROS_INFO("KCL: (RPSquirrelRecursion) Best pose: (%f, %f, %f) Q=[%f, %f, %f, %f], distance to an obstacle: %f. Desired tilt angle: %f", best_pose.pose.position.x, best_pose.pose.position.y, best_pose.pose.position.z, best_pose.pose.orientation.x, best_pose.pose.orientation.y, best_pose.pose.orientation.z, best_pose.pose.orientation.w, max_distance, best_angle.data);
 				
-				ROS_INFO("KCL: (RPSquirrelRecursion) Best pose: (%f, %f, %f) Q=[%f, %f, %f, %f], distance to an obstacle: %f", best_pose.pose.position.x, best_pose.pose.position.y, best_pose.pose.position.z, best_pose.pose.orientation.x, best_pose.pose.orientation.y, best_pose.pose.orientation.z, best_pose.pose.orientation.w, max_distance);
-	
+				tf::Quaternion q(best_pose.pose.orientation.x, best_pose.pose.orientation.y, best_pose.pose.orientation.z, best_pose.pose.orientation.w);
+				tf::Matrix3x3 m(q);
+				double roll, pitch, yaw;
+				m.getRPY(roll, pitch, yaw);
+				
+				ROS_INFO("KCL: (RPSquirrelRecursion) Roll: %f, Pitch: %f, Yaw: %f\n", roll, pitch, yaw);
+				
 				rosplan_knowledge_msgs::KnowledgeUpdateService updateSrv;
 				updateSrv.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
 				updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;

@@ -16,6 +16,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "rosplan_knowledge_msgs/KnowledgeUpdateService.h"
 #include "rosplan_knowledge_msgs/KnowledgeItem.h"
+#include "rosplan_knowledge_msgs/GetInstanceService.h"
 
 /* The implementation of RPMoveBase.h */
 namespace KCL_rosplan {
@@ -47,6 +48,7 @@ namespace KCL_rosplan {
 		action_feedback_pub = nh.advertise<rosplan_dispatch_msgs::ActionFeedback>("/kcl_rosplan/action_feedback", 10, true);
 		update_knowledge_client = nh.serviceClient<rosplan_knowledge_msgs::KnowledgeUpdateService>("/kcl_rosplan/update_knowledge_base");
 		find_dynamic_objects_client = nh.serviceClient<squirrel_object_perception_msgs::FindDynamicObjects>("/squirrel_find_dynamic_objects");
+		get_instance_client = nh.serviceClient<rosplan_knowledge_msgs::GetInstanceService>("/kcl_rosplan/get_current_instances");
 	}
 
 	/* action dispatch callback; parameters (?v - robot ?wp - waypoint) */
@@ -392,7 +394,7 @@ namespace KCL_rosplan {
 		wpid << "waypoint_" << object.id;
 		std::string wpName(wpid.str());
 
-		ROS_INFO("KCL: (PerceptionAction) Check if %s is of type dinosaur", object.id.c_str());
+		ROS_INFO("KCL: (PerceptionAction) Check %s.", object.id.c_str());
 
 		// add the new object
 		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
@@ -426,38 +428,9 @@ namespace KCL_rosplan {
 		if (!update_knowledge_client.call(knowledge_update_service)) {
 			ROS_ERROR("KCL: (PerceptionAction) Could not add object_at predicate to the knowledge base.");
 		}
-
-		// is_of_type fact	
-		knowledge_update_service.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
-		knowledge_update_service.request.knowledge.attribute_name = "is_of_type";
-		knowledge_update_service.request.knowledge.values.pop_back();
-		kv.key = "t";
-                kv.value = "dinosaur";
-		knowledge_update_service.request.knowledge.values.push_back(kv);
-		knowledge_update_service.request.knowledge.is_negative = object.category.find("dinosaur") == std::string::npos;
-
-		if (knowledge_update_service.request.knowledge.is_negative)
-		{
-			ROS_INFO("KCL: (PerceptionAction) %s is NOT a dinosaur", object.id.c_str());
-		}
-		else
-		{
-			ROS_INFO("KCL: (PerceptionAction) %s IS a dinosaur", object.id.c_str());
-		}
-
-/*
-        // TODO remove this after demo
-        if(object.category.find("dinosaur") != std::string::npos)
-                kv.value = "dinosaur";
-        else kv.value = object.category;
-*/
 		
-		if (!update_knowledge_client.call(knowledge_update_service)) {
-			ROS_ERROR("KCL: (PerceptionAction) Could not add is_of_type predicate to the knowledge base.");
-		}
-
-		// Add the opposite to the knowledge base.
-
+		updateType(object);
+		
 		//data
 		geometry_msgs::PoseStamped ps;
 		ps.header = object.header;
@@ -478,6 +451,8 @@ namespace KCL_rosplan {
 		ps.pose = object.pose;
 		db_name_map[wpName] = message_store.insertNamed(wpName, ps);
 		db_name_map[object.id] = message_store.updateNamed(object.id, object);
+		
+		updateType(object);
 	}
 
 	void RPPerceptionAction::removeObject(squirrel_object_perception_msgs::SceneObject &object) {
@@ -491,6 +466,92 @@ namespace KCL_rosplan {
 
 			//data
 			message_store.deleteID(db_name_map[object.id]);
+	}
+	
+	void RPPerceptionAction::updateType(squirrel_object_perception_msgs::SceneObject &object)
+	{
+		ROS_INFO("KCL: (PerceptionAction) Update the type of object %s.", object.id.c_str());
+		
+		// is_of_type fact
+		rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+		knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+		rosplan_knowledge_msgs::KnowledgeItem knowledge_item;
+		
+		diagnostic_msgs::KeyValue kv;
+		
+		// First we get all the possible types of toys that we can encounter.
+		rosplan_knowledge_msgs::GetInstanceService getInstances;
+		getInstances.request.type_name = "type";
+		if (!get_instance_client.call(getInstances)) {
+			ROS_ERROR("KCL: (PerceptionAction) Failed to get all the type instances.");
+			return;
+		}
+		ROS_INFO("KCL: (PerceptionAction) Received %zd type instances.", getInstances.response.instances.size());
+		
+		bool found_type = false;
+		for (std::vector<std::string>::const_iterator ci = getInstances.response.instances.begin(); ci != getInstances.response.instances.end(); ++ci)
+		{
+			const std::string& type = *ci;
+			
+			knowledge_update_service.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+			knowledge_update_service.request.knowledge.attribute_name = "is_of_type";
+			kv.key = "t";
+			kv.value = type;
+			knowledge_update_service.request.knowledge.values.push_back(kv);
+			kv.key = "o";
+			kv.value = object.id;
+			knowledge_update_service.request.knowledge.values.push_back(kv);
+			knowledge_update_service.request.knowledge.is_negative = object.category != type;
+
+			if (knowledge_update_service.request.knowledge.is_negative)
+			{
+				ROS_INFO("KCL: (PerceptionAction) %s is NOT a %s", object.id.c_str(), type.c_str());
+			}
+			else
+			{
+				found_type = true;
+				ROS_INFO("KCL: (PerceptionAction) %s IS a %s", object.id.c_str(), type.c_str());
+			}
+			
+			if (!update_knowledge_client.call(knowledge_update_service)) {
+				ROS_ERROR("KCL: (PerceptionAction) Could not add is_of_type predicate to the knowledge base.");
+			}
+			knowledge_update_service.request.knowledge.values.clear();
+		}
+		
+		// Add new type, if necessary.
+		if (!found_type)
+		{
+			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;
+			rosplan_knowledge_msgs::KnowledgeItem waypoint_knowledge;
+			add_waypoints_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+			waypoint_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::INSTANCE;
+			
+			// Add the known types.
+			waypoint_knowledge.instance_type = "type";
+			waypoint_knowledge.instance_name = object.category;
+			add_waypoints_service.request.knowledge = waypoint_knowledge;
+			if (!update_knowledge_client.call(add_waypoints_service)) {
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add a type to the knowledge base.");
+				exit(-1);
+			}
+			
+			// Make if of that type.
+			knowledge_update_service.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+			knowledge_update_service.request.knowledge.attribute_name = "is_of_type";
+			kv.key = "t";
+			kv.value = object.category;
+			knowledge_update_service.request.knowledge.values.push_back(kv);
+			kv.key = "o";
+			kv.value = object.id;
+			knowledge_update_service.request.knowledge.values.push_back(kv);
+			knowledge_update_service.request.knowledge.is_negative = false;
+
+			if (!update_knowledge_client.call(knowledge_update_service)) {
+				ROS_ERROR("KCL: (PerceptionAction) Could not add is_of_type predicate to the knowledge base.");
+			}
+			knowledge_update_service.request.knowledge.values.clear();
+		}
 	}
 
 } // close namespace

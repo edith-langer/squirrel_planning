@@ -51,7 +51,13 @@
 	<node name="squirrel_interface_perception" pkg="squirrel_interface_perception" type="rpperceptionServer" respawn="false" output="screen">
 		<!-- set "true" if you want to fake object perception completely -->
 		<param name="simulate_perception" value="false" />
-		<param name="use_dynamic_object_finding" value="false" />
+		<param name="use_dynamic_object_finding" value="true" />
+	</node>
+
+	<node name="squirrel_interface_camera" pkg="squirrel_interface_perception" type="rpCameraControl" respawn="false" output="screen">
+		<!-- set "true" if you want to fake object perception completely -->
+		<param name="camera_control_topic" value="/tilt_controller/command" />
+		<param name="default_camera_angle" value="0.5" />
 	</node>
 
 	<node name="squirrel_interface_manipulation" pkg="squirrel_interface_manipulation" type="rppushServer" respawn="false" output="screen">
