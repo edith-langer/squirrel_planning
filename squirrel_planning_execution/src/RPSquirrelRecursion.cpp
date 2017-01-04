@@ -446,7 +446,7 @@ namespace KCL_rosplan {
 			return;
 		}
 		
-		if ("examine_object" == action_name || "explore_waypoint" == action_name)
+		if ("examine_object" == action_name)// || "explore_waypoint" == action_name)
 		{
 			++number_of_segmentation_actions;
 		}
