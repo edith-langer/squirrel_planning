@@ -8,6 +8,7 @@
 #include <tf/LinearMath/Vector3.h>
 #include <tf/LinearMath/Quaternion.h>
 #include <actionlib/client/simple_action_client.h>
+#include <std_msgs/Bool.h>
 #include "rosplan_dispatch_msgs/ActionDispatch.h"
 #include "rosplan_dispatch_msgs/ActionFeedback.h"
 #include "squirrel_object_perception_msgs/LookForObjectsAction.h"
@@ -32,6 +33,7 @@ namespace KCL_rosplan {
 		get_attribute_client = nh.serviceClient<rosplan_knowledge_msgs::GetAttributeService>("/kcl_rosplan/get_current_knowledge");
 		
 		camera_topic_ = nh.advertise<std_msgs::Float64>(camera_control_topic, 10);
+		mapping_topic_ = nh.advertise<std_msgs::Bool>("/squirrel_3d_mapping/update", 1);
 	}
 
 	/* action dispatch callback; parameters (?v - robot ?wp - waypoint) */
@@ -101,9 +103,16 @@ namespace KCL_rosplan {
 					
 					return;
 				}
+
+				std_msgs::Bool mapping_state;
+				mapping_state.data = false;
+				mapping_topic_.publish(mapping_state);
 				
 				angle.data = angles[0]->data;
 				camera_topic_.publish(angle);
+
+				mapping_state.data = true;
+				mapping_topic_.publish(mapping_state);
 				
 				// Update the knowledge base.
 				rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
@@ -177,9 +186,16 @@ namespace KCL_rosplan {
 				
 				return;
 			}
+
+			std_msgs::Bool mapping_state;
+			mapping_state.data = false;
+			mapping_topic_.publish(mapping_state);
 			
 			angle.data = default_camera_angle_;
 			camera_topic_.publish(angle);
+
+			mapping_state.data = true;
+			mapping_topic_.publish(mapping_state);
 			
 			// Update the knowledge base.
 			rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
@@ -258,4 +274,3 @@ namespace KCL_rosplan {
 		while(ros::ok() && ros::master::check()){ros::spinOnce();}
 		return 0;
 	}
-

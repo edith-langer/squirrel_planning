@@ -52,6 +52,8 @@ namespace KCL_rosplan {
 		// Publisher to control the camera.
 		ros::Publisher camera_topic_;
 
+		// Publisher to the mapping control.
+		ros::Publisher mapping_topic_;
 	public:
 
 		/* constructor */
@@ -62,4 +64,3 @@ namespace KCL_rosplan {
 	};
 }
 #endif
-
