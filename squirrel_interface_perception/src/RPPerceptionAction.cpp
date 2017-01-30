@@ -314,13 +314,24 @@ namespace KCL_rosplan {
 		squirrel_object_perception_msgs::LookForObjectsGoal perceptionGoal;
 		perceptionGoal.look_for_object = squirrel_object_perception_msgs::LookForObjectsGoal::CHECK;
 		perceptionGoal.id = objectID;
-		examine_action_client.sendGoal(perceptionGoal);
-
-		examine_action_client.waitForResult();
-		actionlib::SimpleClientGoalState state = examine_action_client.getState();
-		bool success =  (state == actionlib::SimpleClientGoalState::SUCCEEDED);
-		ROS_INFO("KCL: (PerceptionAction) check object finished: %s", state.toString().c_str());
-
+		
+		// Attempt the classfication 5 times.
+		bool success = false;
+		for (unsigned int i = 0; i < 5; ++i)
+		{
+			examine_action_client.sendGoal(perceptionGoal);
+			examine_action_client.waitForResult();
+			
+			actionlib::SimpleClientGoalState state = examine_action_client.getState();
+			success = (state == actionlib::SimpleClientGoalState::SUCCEEDED);
+			ROS_INFO("KCL: (PerceptionAction) check object finished: %s", state.toString().c_str());
+			
+			if (success)
+			{
+				break;
+			}
+		}
+		
 		bool object_segmented = false;
 
 		if (success) {
