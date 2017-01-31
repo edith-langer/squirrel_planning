@@ -242,6 +242,21 @@ namespace KCL_rosplan {
 				exit(1);
 			}
 			
+			// Negative option.
+			knowledge_item.is_negative = true;
+			
+			// Query the knowledge base.
+			rosplan_knowledge_msgs::KnowledgeQueryService negative_knowledge_query;
+			negative_knowledge_query.request.knowledge.push_back(knowledge_item);
+			
+			// Check if any of these facts are false.
+			if (!query_knowledge_client.call(negative_knowledge_query))
+			{
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not call the query knowledge server.");
+				exit(1);
+			}
+			
+			
 			if (knowledge_query.response.all_true && matching_toy_state != NULL && !matching_toy_state->is_examined_)
 			{
 				matching_toy_state->setExamined();
@@ -251,10 +266,14 @@ namespace KCL_rosplan {
 			{
 //				ROS_INFO("KCL: (RPSquirrelRecursion) The waypoint: %s has been explored, but does not correspond to a toy's location.", lump_wp_name_ss.str().c_str());
 			}
-			else
+			else if (!negative_knowledge_query.response.all_true)
 			{
 //				ROS_INFO("KCL: (RPSquirrelRecursion) The waypoint: %s has not been explored, yet.", lump_wp_name_ss.str().c_str());
 				++found_unexplored_lumps;
+			}
+			else
+			{
+				// False positive!
 			}
 		}
 		
