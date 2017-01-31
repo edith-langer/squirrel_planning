@@ -8,6 +8,7 @@
 #include "geometry_msgs/PoseStamped.h"
 #include <geometry_msgs/Point.h>
 #include "std_srvs/Empty.h"
+#include <std_msgs/Float64.h>
 #include "diagnostic_msgs/KeyValue.h"
 #include <actionlib/client/simple_action_client.h>
 #include <tf/transform_listener.h>
