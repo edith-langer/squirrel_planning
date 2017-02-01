@@ -439,6 +439,19 @@ namespace KCL_rosplan {
 	/*---------------------------*/
 
 	void RPSquirrelRecursion::dispatchCallback(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg) {
+		if (task_state_monitor->isComplete()) {
+			std::cout << " ================== PLANNING COMPLETE! ==================" << std::endl;
+				
+			for (std::vector<ToyState>::const_iterator ci = task_state_monitor->getToyLocations().begin(); ci != task_state_monitor->getToyLocations().end(); ++ci)
+			{
+				const ToyState& toy_state = *ci;
+				std::cout << "Time to find: " << toy_state.name_ << " " << toy_state.time_stamp_.toSec() - start_time.toSec() << std::endl;
+			}
+			std::cout << "Total time: " << ros::Time::now().toSec() - start_time.toSec() << std::endl;
+			std::cout << "Number of segmentation actions: " << number_of_segmentation_actions << "; Success: " << task_state_monitor->getNumberOfToysToFind() << "; Fails: " << number_of_segmentation_actions - task_state_monitor->getNumberOfToysToFind() << "; " << (number_of_segmentation_actions == 0 ? 0 : ((float)task_state_monitor->getNumberOfToysToFind() / (float)number_of_segmentation_actions) * 100.0f) << "%" << std::endl;
+			ros::shutdown();
+			exit(0);
+		}
 	
 		rosplan_dispatch_msgs::ActionDispatch normalised_action_dispatch = *msg;
 		std::string action_name = msg->name;
