@@ -296,7 +296,7 @@ namespace KCL_rosplan {
 			is_complete = false;
 		}
 		
-		if (found_unexplored_lumps >= number_of_toys_to_find)
+		if (found_unexplored_lumps >= (number_of_toys_to_find - classified_objects))
 		{
 			//ROS_INFO("KCL: (RPSquirrelRecursion) We have found enough unidentified lumps to start the examination phase.");
 			enough_unexplored_lumps_found = true;
