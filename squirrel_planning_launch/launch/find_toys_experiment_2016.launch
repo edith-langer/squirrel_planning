@@ -29,11 +29,12 @@
             <param name="generate_default_problem" value="false" />
 	</node>
 
-	<!-- standard ROS interfaces -->
+	<!-- standard ROS interfaces 
 	<node name="rosplan_interface_movebase" pkg="rosplan_interface_movebase" type="rpmovebase" respawn="false" output="screen">
 		<param name="action_server" value="/move_base" />
 		<param name="pddl_action_name" value="goto_waypoint" />
 	</node>
+	-->
 
 	<node name="rosplan_interface_mapping" pkg="rosplan_interface_mapping" type="rproadmapServer" respawn="false" output="screen">
 	    <param name="data_path" value="$(find squirrel_planning_launch)/common/" />

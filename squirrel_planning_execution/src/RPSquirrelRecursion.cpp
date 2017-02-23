@@ -15,6 +15,7 @@
 #include "pddl_actions/ShedKnowledgePDDLAction.h"
 #include "pddl_actions/FinaliseClassificationPDDLAction.h"
 #include "pddl_actions/PlannerInstance.h"
+#include "pddl_actions/GotoWaypointWrapper.h"
 
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
@@ -1263,6 +1264,12 @@ namespace KCL_rosplan {
 		// Setup all the simulated actions.
 		KCL_rosplan::ShedKnowledgePDDLAction shed_knowledge_action(nh);
 		KCL_rosplan::FinaliseClassificationPDDLAction finalise_classify_action(nh);
+		
+		// Start the goto waypoint wrapper.
+		float fov, view_distance;
+		nh.getParam("/squirrel_interface_recursion/viewcone_field_of_view", fov);
+		nh.getParam("/squirrel_interface_recursion/viewcone_view_distance", view_distance);
+		KCL_rosplan::GotoWaypointWrapper goto_wrapper(nh, "/move_base", fov, view_distance);
 		
 		// listen for action dispatch
 		ros::Subscriber ds = nh.subscribe("/kcl_rosplan/action_dispatch", 1000, &KCL_rosplan::RPSquirrelRecursion::dispatchCallback, &rpsr);

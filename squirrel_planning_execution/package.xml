@@ -26,7 +26,8 @@
   <build_depend>occupancy_grid_utils</build_depend>
   <build_depend>squirrel_waypoint_msgs</build_depend>
   <build_depend>squirrel_speech_msgs</build_depend>
-
+  <build_depend>squirrel_object_perception_msgs</build_depend>
+  
   <run_depend>rospy</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>rostest</run_depend>
@@ -44,6 +45,6 @@
   <run_depend>occupancy_grid_utils</run_depend>
   <run_depend>squirrel_waypoint_msgs</run_depend>
   <run_depend>squirrel_speech_msgs</run_depend>
-
+  <run_depend>squirrel_object_perception_msgs</run_depend>
   <export></export>
 </package>
