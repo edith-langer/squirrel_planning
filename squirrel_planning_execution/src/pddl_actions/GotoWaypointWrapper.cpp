@@ -14,6 +14,7 @@ namespace KCL_rosplan
 		clear_costmaps_client = nh.serviceClient<std_srvs::Empty>("/move_base/clear_costmaps");
 		check_waypoint_ = nh.serviceClient<squirrel_object_perception_msgs::CheckWaypoint>("/squirrel_check_viewcone");
 		action_feedback_pub_ = nh.advertise<rosplan_dispatch_msgs::ActionFeedback>("/kcl_rosplan/action_feedback", 10, true);
+		ds_ = nh.subscribe("/kcl_rosplan/action_dispatch", 1000, &KCL_rosplan::GotoWaypointWrapper::dispatchCallback, this);
 	}
 	
 	GotoWaypointWrapper::~GotoWaypointWrapper()

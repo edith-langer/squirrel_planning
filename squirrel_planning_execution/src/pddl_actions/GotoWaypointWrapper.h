@@ -48,6 +48,7 @@ private:
 	ros::Subscriber dispatch_sub_;               // Subscriber to the dispatch topic of ROSPlan.
 	ros::Publisher action_feedback_pub_;
 	float fov_, view_distance_;
+	ros::Subscriber ds_;
 };
 
 };
