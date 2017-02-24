@@ -45,6 +45,7 @@ private:
 	actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> action_client;
 	ros::ServiceClient clear_costmaps_client;
 	ros::ServiceClient check_waypoint_;
+	ros::ServiceClient update_knowledge_client_;
 	ros::Subscriber dispatch_sub_;               // Subscriber to the dispatch topic of ROSPlan.
 	ros::Publisher action_feedback_pub_;
 	float fov_, view_distance_;

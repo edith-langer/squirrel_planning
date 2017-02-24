@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <std_srvs/Empty.h>
 #include <rosplan_dispatch_msgs/ActionFeedback.h>
+#include <rosplan_knowledge_msgs/KnowledgeUpdateService.h>
 
 #include "GotoWaypointWrapper.h"
 
@@ -12,6 +13,8 @@ namespace KCL_rosplan
 	{
 		// costmap client
 		clear_costmaps_client = nh.serviceClient<std_srvs::Empty>("/move_base/clear_costmaps");
+		
+		update_knowledge_client_ = nh.serviceClient<rosplan_knowledge_msgs::KnowledgeUpdateService>("/kcl_rosplan/update_knowledge_base");
 		check_waypoint_ = nh.serviceClient<squirrel_object_perception_msgs::CheckWaypoint>("/squirrel_check_viewcone");
 		action_feedback_pub_ = nh.advertise<rosplan_dispatch_msgs::ActionFeedback>("/kcl_rosplan/action_feedback", 10, true);
 		ds_ = nh.subscribe("/kcl_rosplan/action_dispatch", 1000, &KCL_rosplan::GotoWaypointWrapper::dispatchCallback, this);
@@ -109,6 +112,58 @@ namespace KCL_rosplan
 
 				if(state == actionlib::SimpleClientGoalState::SUCCEEDED) {
 
+					// Update the domain.
+					const std::string& robot = msg->parameters[0].value;
+					const std::string& previous_waypoint = msg->parameters[1].value;
+					const std::string& new_waypoint = msg->parameters[2].value;
+					
+					ROS_INFO("KCL: (GotoWaypointWrapper) Process the action: %s, Move %s from %s to %s", normalised_action_name.c_str(), robot.c_str(), previous_waypoint.c_str(), new_waypoint.c_str());
+					
+					// Remove the old knowledge.
+					rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+					knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
+					rosplan_knowledge_msgs::KnowledgeItem kenny_knowledge;
+					kenny_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+					kenny_knowledge.attribute_name = "robot_at";
+					kenny_knowledge.is_negative = false;
+					
+					diagnostic_msgs::KeyValue kv;
+					kv.key = "v";
+					kv.value = robot;
+					kenny_knowledge.values.push_back(kv);
+					
+					kv.key = "wp";
+					kv.value = previous_waypoint;
+					kenny_knowledge.values.push_back(kv);
+					
+					knowledge_update_service.request.knowledge = kenny_knowledge;
+					if (!update_knowledge_client_.call(knowledge_update_service)) {
+						ROS_ERROR("KCL: (GotoWaypointWrapper) Could not remove the previous (robot_at %s %s) predicate from the knowledge base.", robot.c_str(), previous_waypoint.c_str());
+						exit(-1);
+					}
+					ROS_INFO("KCL: (GotoWaypointWrapper) Removed the previous (robot_at %s %s) predicate from the knowledge base.", robot.c_str(), previous_waypoint.c_str());
+					kenny_knowledge.values.clear();
+					
+					// Add the new knowledge.
+					knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+					kenny_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+					kenny_knowledge.attribute_name = "robot_at";
+					
+					kv.key = "v";
+					kv.value = robot;
+					kenny_knowledge.values.push_back(kv);
+					
+					kv.key = "wp";
+					kv.value = new_waypoint;
+					kenny_knowledge.values.push_back(kv);
+					
+					knowledge_update_service.request.knowledge = kenny_knowledge;
+					if (!update_knowledge_client_.call(knowledge_update_service)) {
+						ROS_ERROR("KCL: (GotoWaypointWrapper) Could not add the new (robot_at %s %s) predicate to the knowledge base.", robot.c_str(), new_waypoint.c_str());
+						exit(-1);
+					}
+					ROS_INFO("KCL: (GotoWaypointWrapper) Added the new (robot_at %s %s) predicate to the knowledge base.", robot.c_str(), new_waypoint.c_str());
+					
 					// publish feedback (achieved)
 					fb.action_id = msg->action_id;
 					fb.status = "action achieved";
