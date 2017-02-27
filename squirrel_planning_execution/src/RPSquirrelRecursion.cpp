@@ -1269,6 +1269,28 @@ namespace KCL_rosplan {
 			}
 			
 			// Get the actual location of this robot.
+			tf::TransformListener listener;
+			tf::StampedTransform transform;
+			try{
+				listener.lookupTransform("/map", "/move_base", ros::Time(0), transform);
+			}
+			catch (tf::TransformException ex){
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Failed to get the robot's location. %s",ex.what());
+				exit(-1);
+			}
+			
+			geometry_msgs::PoseStamped robot_pose;
+			robot_pose.header.frame_id = "/map";
+			robot_pose.header.stamp = transform.stamp_;
+			robot_pose.pose.position.x = transform.getOrigin().x();
+			robot_pose.pose.position.y = transform.getOrigin().y();
+			robot_pose.pose.position.z = transform.getOrigin().z();
+			robot_pose.pose.orientation.x = transform.getRotation().x();
+			robot_pose.pose.orientation.y = transform.getRotation().y();
+			robot_pose.pose.orientation.z = transform.getRotation().z();
+			robot_pose.pose.orientation.w = transform.getRotation().w();
+			
+			/*
 			std::vector<boost::shared_ptr<geometry_msgs::PoseStamped> > robot_locations;
 			if (message_store.queryNamed<geometry_msgs::PoseStamped>(robot_location, robot_locations) && robot_locations.size() == 1)
 			{
@@ -1288,9 +1310,9 @@ namespace KCL_rosplan {
 				robot_pose->pose.orientation.z = 0;
 				robot_pose->pose.orientation.w = 1;
 			}
-			
+			*/
 			std::set<std::string> processed_objects;
-			geometry_msgs::Pose current_pose = robot_locations[0]->pose;
+			geometry_msgs::Pose current_pose = robot_pose.pose;
 			std::string previous_object;
 			while (processed_objects.size() != object_to_location_map.size())
 			{
