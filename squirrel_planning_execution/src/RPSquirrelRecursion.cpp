@@ -1273,7 +1273,7 @@ namespace KCL_rosplan {
 			tf::StampedTransform transform;
 			try{
 				listener.waitForTransform("/map", "/base_link", ros::Time(0), ros::Duration(10.0));
-				listener.lookupTransform("/map", "/base_link", ros::Time::now(), transform);
+				listener.lookupTransform("/map", "/base_link", ros::Time(0), transform);
 			}
 			catch (tf::TransformException ex){
 				ROS_ERROR("KCL: (RPSquirrelRecursion) Failed to get the robot's location. Falling back on a default value. %s",ex.what());
@@ -1305,6 +1305,12 @@ namespace KCL_rosplan {
 				for (std::map<std::string, geometry_msgs::Pose>::const_iterator ci = object_to_location_map.begin(); ci != object_to_location_map.end(); ++ci)
 				{
 					const std::string& name = ci->first;
+					
+					if (processed_objects.count(name) != 0)
+					{
+						continue;
+					}
+					
 					const geometry_msgs::Pose& object_pose = ci->second;
 					float distance = (current_pose.position.x - object_pose.position.x) * (current_pose.position.x - object_pose.position.x) +
 					                 (current_pose.position.y - object_pose.position.y) * (current_pose.position.y - object_pose.position.y) +
@@ -1355,7 +1361,7 @@ namespace KCL_rosplan {
 						exit(-1);
 					}
 				}
-				
+				processed_objects.insert(closest_object);
 				previous_object = closest_object;
 			}
 			
