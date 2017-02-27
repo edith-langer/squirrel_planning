@@ -1136,17 +1136,7 @@ namespace KCL_rosplan {
 				else
 				{
 					ROS_ERROR("KCL: (RPSquirrelRoadmap) could not query message store to fetch object pose at %s. Found %zd poses.", location_predicate.c_str(), location_locations.size());
-					//return false;
-					geometry_msgs::PoseStamped* robot_pose = new geometry_msgs::PoseStamped();
-					robot_pose->header.frame_id = "/map";
-					robot_pose->header.stamp = ros::Time::now();
-					robot_pose->pose.position.x = 0;
-					robot_pose->pose.position.y = 0;
-					robot_pose->pose.position.z = 0;
-					robot_pose->pose.orientation.x = 0;
-					robot_pose->pose.orientation.y = 0;
-					robot_pose->pose.orientation.z = 0;
-					robot_pose->pose.orientation.w = 1;
+					return false;
 				}
 				
 				// Find locations from where we can observe
@@ -1287,7 +1277,16 @@ namespace KCL_rosplan {
 			else
 			{
 				ROS_ERROR("KCL: (RPSquirrelRecursion) could not query message store to fetch the robot pose. Found %zd poses.", robot_locations.size());
-				return false;
+				geometry_msgs::PoseStamped* robot_pose = new geometry_msgs::PoseStamped();
+				robot_pose->header.frame_id = "/map";
+				robot_pose->header.stamp = ros::Time::now();
+				robot_pose->pose.position.x = 0;
+				robot_pose->pose.position.y = 0;
+				robot_pose->pose.position.z = 0;
+				robot_pose->pose.orientation.x = 0;
+				robot_pose->pose.orientation.y = 0;
+				robot_pose->pose.orientation.z = 0;
+				robot_pose->pose.orientation.w = 1;
 			}
 			
 			std::set<std::string> processed_objects;
