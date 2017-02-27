@@ -1272,7 +1272,7 @@ namespace KCL_rosplan {
 			tf::TransformListener listener;
 			tf::StampedTransform transform;
 			try{
-				listener.lookupTransform("/map", "/move_base", ros::Time(0), transform);
+				listener.lookupTransform("/map", "/base_link", ros::Time(0), transform);
 			}
 			catch (tf::TransformException ex){
 				ROS_ERROR("KCL: (RPSquirrelRecursion) Failed to get the robot's location. %s",ex.what());
@@ -1290,27 +1290,7 @@ namespace KCL_rosplan {
 			robot_pose.pose.orientation.z = transform.getRotation().z();
 			robot_pose.pose.orientation.w = transform.getRotation().w();
 			
-			/*
-			std::vector<boost::shared_ptr<geometry_msgs::PoseStamped> > robot_locations;
-			if (message_store.queryNamed<geometry_msgs::PoseStamped>(robot_location, robot_locations) && robot_locations.size() == 1)
-			{
-				ROS_INFO("KCL: (RPSquirrelRecursion) Found the location of the robot.");
-			}
-			else
-			{
-				ROS_ERROR("KCL: (RPSquirrelRecursion) could not query message store to fetch the robot pose. Found %zd poses.", robot_locations.size());
-				geometry_msgs::PoseStamped* robot_pose = new geometry_msgs::PoseStamped();
-				robot_pose->header.frame_id = "/map";
-				robot_pose->header.stamp = ros::Time::now();
-				robot_pose->pose.position.x = 0;
-				robot_pose->pose.position.y = 0;
-				robot_pose->pose.position.z = 0;
-				robot_pose->pose.orientation.x = 0;
-				robot_pose->pose.orientation.y = 0;
-				robot_pose->pose.orientation.z = 0;
-				robot_pose->pose.orientation.w = 1;
-			}
-			*/
+			
 			std::set<std::string> processed_objects;
 			geometry_msgs::Pose current_pose = robot_pose.pose;
 			std::string previous_object;
