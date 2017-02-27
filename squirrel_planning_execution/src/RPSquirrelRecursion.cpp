@@ -1272,15 +1272,19 @@ namespace KCL_rosplan {
 			tf::TransformListener listener;
 			tf::StampedTransform transform;
 			try{
-				listener.lookupTransform("/map", "/base_link", ros::Time(0), transform);
+				listener.waitForTransform("/map", "/base_link", ros::Time(0), ros::Duration(10.0));
+				listener.lookupTransform("/map", "/base_link", ros::Time::now(), transform);
 			}
 			catch (tf::TransformException ex){
-				ROS_ERROR("KCL: (RPSquirrelRecursion) Failed to get the robot's location. %s",ex.what());
-				exit(-1);
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Failed to get the robot's location. Falling back on a default value. %s",ex.what());
+				transform.frame_id_ = "/map";
+				transform.stamp_ = ros::Time::now();
+				transform.setOrigin(tf::Vector3(0, 0, 0));
+				transform.setRotation(tf::Quaternion (0, 0, 0, 1));
 			}
 			
 			geometry_msgs::PoseStamped robot_pose;
-			robot_pose.header.frame_id = "/map";
+			robot_pose.header.frame_id = transform.frame_id_;
 			robot_pose.header.stamp = transform.stamp_;
 			robot_pose.pose.position.x = transform.getOrigin().x();
 			robot_pose.pose.position.y = transform.getOrigin().y();
