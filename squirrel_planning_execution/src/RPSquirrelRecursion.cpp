@@ -1295,6 +1295,8 @@ namespace KCL_rosplan {
 			robot_pose.pose.orientation.w = transform.getRotation().w();
 			
 			
+			ROS_INFO("KCL: (RPSquirrelRecursion) Choose the order of the waypoints... The robot is at (%f, %f, %f)\n", robot_pose.pose.position.x, robot_pose.pose.position.y, robot_pose.pose.position.z);
+			
 			std::set<std::string> processed_objects;
 			geometry_msgs::Pose current_pose = robot_pose.pose;
 			std::string previous_object;
@@ -1363,6 +1365,8 @@ namespace KCL_rosplan {
 				}
 				processed_objects.insert(closest_object);
 				previous_object = closest_object;
+				const geometry_msgs::Pose& pose = object_to_location_map[closest_object];
+				ROS_INFO("KCL: (RPSquirrelRecursion) [%zd] Visit (%f, %f, %f)\n", processed_objects.size(), pose.position.x, pose.position.y, pose.position.z);
 			}
 			
 			// For the last object we need to insert an additional fact, otherwise the planning problem is unsolvable.
@@ -1394,7 +1398,6 @@ namespace KCL_rosplan {
 		}
 		return true;
 	}
-
 } // close namespace
 
 	/*-------------*/
