@@ -30,7 +30,6 @@ squirrel_planning_launch/common/d3_viz/sample.json
 squirrel_planning_launch/common/d3_viz/tree.html
 squirrel_planning_launch/common/tidy_room_problem.pddl
 squirrel_planning_launch/common/explore_area_problem.pddl
-squirrel_planning_launch/common/examine_area_domain-nt.pddl
 squirrel_planning_launch/common/examine_area_problem.pddl
 squirrel_planning_launch/common/observe-classifiable_on_attempt_domain-nt.pddl
 squirrel_planning_launch/common/observe-classifiable_on_attempt_problem.pddl

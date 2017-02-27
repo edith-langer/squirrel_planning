@@ -1243,6 +1243,7 @@ namespace KCL_rosplan {
 					exit(-1);
 				}
 				ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (examined %s) to the knowledge base.", object_predicate.c_str());
+				updateSrv.request.knowledge.values.clear();
 			}
 			
 			/**
@@ -1346,6 +1347,8 @@ namespace KCL_rosplan {
 						ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (next %s %s) to the knowledge base.", closest_object.c_str(), previous_object.c_str());
 						exit(-1);
 					}
+					ROS_INFO("KCL: (RPSquirrelRecursion) Added the fact (next %s %s) to the knowledge base.", closest_object.c_str(), previous_object.c_str());
+					updateSrv.request.knowledge.values.clear();
 				}
 				// This is the first object to observe.
 				else
@@ -1362,6 +1365,8 @@ namespace KCL_rosplan {
 						ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (observe %s) to the knowledge base.", closest_object.c_str());
 						exit(-1);
 					}
+					ROS_INFO("KCL: (RPSquirrelRecursion) Added the fact (observe %s) to the knowledge base.", closest_object.c_str());
+					updateSrv.request.knowledge.values.clear();
 				}
 				processed_objects.insert(closest_object);
 				previous_object = closest_object;
