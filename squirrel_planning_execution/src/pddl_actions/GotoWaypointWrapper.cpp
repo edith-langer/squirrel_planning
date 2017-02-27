@@ -206,7 +206,7 @@ namespace KCL_rosplan
 		}
 	}
 	
-	void GotoWaypointWrapper::enableCheck(bool check_view_cones_)
+	void GotoWaypointWrapper::enableCheck(bool check_view_cones)
 	{
 		check_view_cones_ = check_view_cones;
 	}
