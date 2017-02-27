@@ -15,18 +15,24 @@
 	(observable_from ?o - object ?wp - waypoint)
 	(camera_aimed ?v - robot)
 	(camera_neutral ?v - robot)
+	(observe ?o)
+	(next ?o ?o2)
 )
 
 ;; Use perception actions to search for objects at the current waypoint
 (:action examine_object
-	:parameters (?v - robot ?wp - waypoint ?o - object)
+	:parameters (?v - robot ?wp - waypoint ?o - object ?o2 - object)
 	:precondition (and
 		(robot_at ?v ?wp)
 		(observable_from ?o ?wp)
 		(camera_aimed ?v)
+		(observe ?o)
+		(next ?o ?o2)
 	)
 	:effect (and
 		(examined ?o)
+		(not (observe ?o))
+		(observe ?o2)
 	)
 )
 
