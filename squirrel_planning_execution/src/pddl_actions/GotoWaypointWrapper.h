@@ -40,6 +40,11 @@ public:
 	 */
 	void dispatchCallback(const rosplan_dispatch_msgs::ActionDispatch::ConstPtr& msg);
 	
+	/**
+	 * Set whether we should check the view cones or not.
+	 */
+	static void enableCheck(bool check_view_cones_);
+	
 private:
 	mongodb_store::MessageStoreProxy message_store;
 	actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> action_client;
@@ -50,6 +55,8 @@ private:
 	ros::Publisher action_feedback_pub_;
 	float fov_, view_distance_;
 	ros::Subscriber ds_;
+	
+	static bool check_view_cones_;
 };
 
 };

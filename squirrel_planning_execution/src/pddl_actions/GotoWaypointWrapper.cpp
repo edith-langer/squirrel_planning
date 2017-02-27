@@ -8,6 +8,8 @@
 namespace KCL_rosplan
 {
 
+	bool GotoWaypointWrapper::check_view_cones_ = true;
+	
 	GotoWaypointWrapper::GotoWaypointWrapper(ros::NodeHandle& nh, const std::string& actionserver, float fov, float view_distance)
 		: message_store(nh), action_client(actionserver, true), fov_(fov), view_distance_(view_distance)
 	{
@@ -71,25 +73,28 @@ namespace KCL_rosplan
 			if(results.size()>1)
 				ROS_INFO("KCL: (GotoWaypointWrapper) multiple waypoints share the same wpID");
 
-			// Check if we want to explore this waypoint.
-			squirrel_object_perception_msgs::CheckWaypoint cw_data;
-			cw_data.request.waypoint = results[0]->pose;
-			cw_data.request.fov = fov_;
-			cw_data.request.viewing_distance = view_distance_;
-			
-			if (!check_waypoint_.call(cw_data))
+			if (check_view_cones_)
 			{
-				ROS_ERROR("KCL: (GotoWaypointWrapper) Failed to call the check waypoint service.");
-				exit(-1);
-			}
-			
-			// If we don't then we pretend this action is done and effectively skip it.
-			if (!cw_data.response.explore_waypoint.data)
-			{
-				fb.action_id = msg->action_id;
-				fb.status = "action achieved";
-				action_feedback_pub_.publish(fb);
-				return;
+				// Check if we want to explore this waypoint.
+				squirrel_object_perception_msgs::CheckWaypoint cw_data;
+				cw_data.request.waypoint = results[0]->pose;
+				cw_data.request.fov = fov_;
+				cw_data.request.viewing_distance = view_distance_;
+				
+				if (!check_waypoint_.call(cw_data))
+				{
+					ROS_ERROR("KCL: (GotoWaypointWrapper) Failed to call the check waypoint service.");
+					exit(-1);
+				}
+				
+				// If we don't then we pretend this action is done and effectively skip it.
+				if (!cw_data.response.explore_waypoint.data)
+				{
+					fb.action_id = msg->action_id;
+					fb.status = "action achieved";
+					action_feedback_pub_.publish(fb);
+					return;
+				}
 			}
 			
 			ROS_INFO("KCL: (GotoWaypointWrapper) waiting for move_base action server to start");
@@ -199,5 +204,10 @@ namespace KCL_rosplan
 			action_feedback_pub_.publish(fb);
 			return;
 		}
+	}
+	
+	void GotoWaypointWrapper::enableCheck(bool check_view_cones)
+	{
+		check_view_cones_ = check_view_cones;
 	}
 };
