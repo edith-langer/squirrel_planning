@@ -2,6 +2,7 @@
 #include <std_srvs/Empty.h>
 #include <rosplan_dispatch_msgs/ActionFeedback.h>
 #include <rosplan_knowledge_msgs/KnowledgeUpdateService.h>
+#include <rosplan_knowledge_msgs/GetAttributeService.h>
 
 #include "GotoWaypointWrapper.h"
 
@@ -20,6 +21,8 @@ namespace KCL_rosplan
 		check_waypoint_ = nh.serviceClient<squirrel_object_perception_msgs::CheckWaypoint>("/squirrel_check_viewcone");
 		action_feedback_pub_ = nh.advertise<rosplan_dispatch_msgs::ActionFeedback>("/kcl_rosplan/action_feedback", 10, true);
 		ds_ = nh.subscribe("/kcl_rosplan/action_dispatch", 1000, &KCL_rosplan::GotoWaypointWrapper::dispatchCallback, this);
+		
+		get_attribute_client_ = nh.serviceClient<rosplan_knowledge_msgs::GetAttributeService>("/kcl_rosplan/get_current_knowledge");
 	}
 	
 	GotoWaypointWrapper::~GotoWaypointWrapper()
@@ -124,7 +127,37 @@ namespace KCL_rosplan
 					
 					ROS_INFO("KCL: (GotoWaypointWrapper) Process the action: %s, Move %s from %s to %s", normalised_action_name.c_str(), robot.c_str(), previous_waypoint.c_str(), new_waypoint.c_str());
 					
-					// Remove the old knowledge.
+					// Remove the old knowledge, because we might have skipped some waypoints we remove them all.
+					rosplan_knowledge_msgs::GetAttributeService attribute_service;
+					attribute_service.request.predicate_name = "robot_at";
+					if (!get_attribute_client_.call(attribute_service))
+					{
+						ROS_ERROR("KCL: (RPSquirrelRecursion) Unable to call the attribute service.");
+						exit(-1);
+					}
+					
+					for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = attribute_service.response.attributes.begin(); ci != attribute_service.response.attributes.end(); ++ci)
+					{
+						const rosplan_knowledge_msgs::KnowledgeItem& knowledge_item = *ci;
+						rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
+						knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
+						knowledge_update_service.request.knowledge = knowledge_item;
+						if (!update_knowledge_client_.call(knowledge_update_service)) {
+							ROS_ERROR("KCL: (RPSquirrelRecursion) Could not remove the previous goals from the knowledge base.");
+							exit(-1);
+						}
+						
+						std::stringstream ss;
+						ss << "(" << knowledge_item.attribute_name;
+						for (std::vector<diagnostic_msgs::KeyValue>::const_iterator ci = knowledge_item.values.begin(); ci != knowledge_item.values.end(); ++ci)
+						{
+							ss << " " << (*ci).value;
+						}
+						ss << ")";
+						ROS_INFO("KCL: (RPSquirrelRecursion) Removed the fact %s.", ss.str().c_str());
+					}
+					
+					/*
 					rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
 					knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::REMOVE_KNOWLEDGE;
 					rosplan_knowledge_msgs::KnowledgeItem kenny_knowledge;
@@ -148,12 +181,17 @@ namespace KCL_rosplan
 					}
 					ROS_INFO("KCL: (GotoWaypointWrapper) Removed the previous (robot_at %s %s) predicate from the knowledge base.", robot.c_str(), previous_waypoint.c_str());
 					kenny_knowledge.values.clear();
+					*/
 					
 					// Add the new knowledge.
+					rosplan_knowledge_msgs::KnowledgeUpdateService knowledge_update_service;
 					knowledge_update_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
+					
+					rosplan_knowledge_msgs::KnowledgeItem kenny_knowledge;
 					kenny_knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
 					kenny_knowledge.attribute_name = "robot_at";
 					
+					diagnostic_msgs::KeyValue kv;
 					kv.key = "v";
 					kv.value = robot;
 					kenny_knowledge.values.push_back(kv);
