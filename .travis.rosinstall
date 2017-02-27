@@ -1,0 +1,12 @@
+- git:
+    uri: 'git@github.com:clearpathrobotics/occupancy_grid_utils.git'
+    local-name: occupancy_grid_utils
+    version: indigo_dev
+- git:
+    uri: 'git@github.com:squirrel-project/squirrel_common.git'
+    local-name: squirrel_common
+    version: indigo_dev
+- git:
+    uri: 'git@github.com:kcl-planning/ROSPlan.git'
+    local-name: ROSPlan
+    version: indigo_dev

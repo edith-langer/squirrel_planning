@@ -1095,6 +1095,7 @@ namespace KCL_rosplan {
 				return false;
 			}
 			
+			std::map<std::string, geometry_msgs::Pose> object_to_location_map;
 			for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = get_attribute.response.attributes.begin(); ci != get_attribute.response.attributes.end(); ++ci) {
 				const rosplan_knowledge_msgs::KnowledgeItem& knowledge_item = *ci;
 				std::string object_predicate;
@@ -1120,6 +1121,7 @@ namespace KCL_rosplan {
 					{
 						//std::cout << "KCL: (RPSquirrelRoadmap) Found the location of " << location_predicate << ": (" << (*ci)->pose.position.x << ", " << (*ci)->pose.position.y << ", " << (*ci)->pose.position.z << ")" << std::endl;
 						ROS_ERROR("KCL: (RPSquirrelRoadmap) Found the location of %s: (%f, %f, %f)", location_predicate.c_str(), (*ci)->pose.position.x, (*ci)->pose.position.y, (*ci)->pose.position.z);
+						object_to_location_map[object_predicate] = (*ci)->pose;
 					}
 				}
 				else
@@ -1232,6 +1234,122 @@ namespace KCL_rosplan {
 					exit(-1);
 				}
 				ROS_INFO("KCL: (RPSquirrelRecursion) Added the goal (examined %s) to the knowledge base.", object_predicate.c_str());
+			}
+			
+			/**
+			 * Setup the order in which objects need to be observed.
+			 */
+			std::string robot_location;
+			get_attribute.request.predicate_name = "robot_at";
+			if (!get_attribute_client.call(get_attribute)) {
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Failed to recieve the attributes of the predicate 'robot_at'");
+				return false;
+			}
+			
+			for (std::vector<rosplan_knowledge_msgs::KnowledgeItem>::const_iterator ci = get_attribute.response.attributes.begin(); ci != get_attribute.response.attributes.end(); ++ci) {
+				const rosplan_knowledge_msgs::KnowledgeItem& knowledge_item = *ci;
+				for (std::vector<diagnostic_msgs::KeyValue>::const_iterator ci = knowledge_item.values.begin(); ci != knowledge_item.values.end(); ++ci) {
+					const diagnostic_msgs::KeyValue& key_value = *ci;
+					if ("v" == key_value.key) {
+						robot_location = key_value.value;
+						break;
+					}
+				}
+				if (robot_location != "")
+					break;
+			}
+			
+			// Get the actual location of this robot.
+			std::vector<boost::shared_ptr<geometry_msgs::PoseStamped> > robot_locations;
+			if (message_store.queryNamed<geometry_msgs::PoseStamped>(robot_location, robot_locations) && robot_locations.size() == 1)
+			{
+				ROS_INFO("KCL: (RPSquirrelRecursion) Found the location of the robot.");
+			}
+			else
+			{
+				ROS_ERROR("KCL: (RPSquirrelRecursion) could not query message store to fetch the robot pose. Found %zd poses.", robot_locations.size());
+				return false;
+			}
+			
+			std::set<std::string> processed_objects;
+			geometry_msgs::Pose current_pose = robot_locations[0]->pose;
+			std::string previous_object;
+			while (processed_objects.size() != object_to_location_map.size())
+			{
+				float smallest_distance = std::numeric_limits<float>::max();
+				std::string closest_object;
+				for (std::map<std::string, geometry_msgs::Pose>::const_iterator ci = object_to_location_map.begin(); ci != object_to_location_map.end(); ++ci)
+				{
+					const std::string& name = ci->first;
+					const geometry_msgs::Pose& object_pose = ci->second;
+					float distance = (current_pose.position.x - object_pose.position.x) * (current_pose.position.x - object_pose.position.x) +
+					                 (current_pose.position.y - object_pose.position.y) * (current_pose.position.y - object_pose.position.y) +
+					                 (current_pose.position.z - object_pose.position.z) * (current_pose.position.z - object_pose.position.z);
+					
+					if (distance < smallest_distance)
+					{
+						smallest_distance = distance;
+						closest_object = name;
+					}
+				}
+				
+				// Update the current pose to the closest object's location.
+				current_pose = object_to_location_map[closest_object];
+				
+				// Make this object to be observed next.
+				if (previous_object != "")
+				{
+					updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+					updateSrv.request.knowledge.attribute_name = "next";
+					updateSrv.request.knowledge.is_negative = false;
+					diagnostic_msgs::KeyValue kv;
+					kv.key = "o";
+					kv.value = previous_object;
+					updateSrv.request.knowledge.values.push_back(kv);
+					
+					kv.key = "o2";
+					kv.value = closest_object;
+					updateSrv.request.knowledge.values.push_back(kv);
+					if (!update_knowledge_client.call(updateSrv)) {
+						ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (next %s %s) to the knowledge base.", closest_object.c_str(), previous_object.c_str());
+						exit(-1);
+					}
+				}
+				// This is the first object to observe.
+				else
+				{
+					updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+					updateSrv.request.knowledge.attribute_name = "observe";
+					updateSrv.request.knowledge.is_negative = false;
+					diagnostic_msgs::KeyValue kv;
+					kv.key = "o";
+					kv.value = closest_object;
+					updateSrv.request.knowledge.values.push_back(kv);
+					
+					if (!update_knowledge_client.call(updateSrv)) {
+						ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (observe %s) to the knowledge base.", closest_object.c_str());
+						exit(-1);
+					}
+				}
+				
+				previous_object = closest_object;
+			}
+			
+			// For the last object we need to insert an additional fact, otherwise the planning problem is unsolvable.
+			updateSrv.request.knowledge.knowledge_type = rosplan_knowledge_msgs::KnowledgeItem::FACT;
+			updateSrv.request.knowledge.attribute_name = "next";
+			updateSrv.request.knowledge.is_negative = false;
+			diagnostic_msgs::KeyValue kv;
+			kv.key = "o";
+			kv.value = previous_object;
+			updateSrv.request.knowledge.values.push_back(kv);
+			
+			kv.key = "o2";
+			kv.value = previous_object;
+			updateSrv.request.knowledge.values.push_back(kv);
+			if (!update_knowledge_client.call(updateSrv)) {
+				ROS_ERROR("KCL: (RPSquirrelRecursion) Could not add the fact (next %s %s) to the knowledge base.", previous_object.c_str(), previous_object.c_str());
+				exit(-1);
 			}
 			
 			PlanningEnvironment planning_environment;
