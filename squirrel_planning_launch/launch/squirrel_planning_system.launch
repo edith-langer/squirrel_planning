@@ -6,7 +6,7 @@
 	<param name="planner_path" value="$(find rosplan_planning_system)/common/bin/" />
 
 	<!-- domain file -->
-	<param name="domain_path" value="$(find squirrel_planning_launch)/common/tidy_room_domain-nt.pddl" />
+	<param name="/rosplan/domain_path" value="$(find squirrel_planning_launch)/common/tidy_room_domain-nt.pddl" />
 
 	<!-- knowledge base -->
 	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen" />
