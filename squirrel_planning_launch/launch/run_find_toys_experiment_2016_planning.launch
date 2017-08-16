@@ -21,10 +21,18 @@
 	    <param name="toy_p7" value="-0.845,0.1,0.0" />
 	    <param name="toy_p8" value="-1.4,-8.95,0.0" />
 	    <!-- bounding box for placing view cones (must be convex). -->
+	    <!-- these are the values for ipa-room in gazebo-->
 	    <param name="viewcone_bounding_box_p0" value="-2.0,0.9,0.0" />
 	    <param name="viewcone_bounding_box_p1" value="-2.0,-9.54,0.0" />
 	    <param name="viewcone_bounding_box_p2" value="6.05,-9.54,0.0" />
 	    <param name="viewcone_bounding_box_p3" value="6.05,0.9,0.0" />
+	    
+	    <!-- these are the values for GH30
+	    <param name="viewcone_bounding_box_p0" value="-0.62,-2.69,0.0" />
+            <param name="viewcone_bounding_box_p1" value="-1.39,2.88,0.0" />
+            <param name="viewcone_bounding_box_p2" value="5.02,3.09,0.0" />
+            <param name="viewcone_bounding_box_p3" value="5.03,-2.36,0.0" />
+	    -->
 	    <!-- view cone parameters -->
 	    <param name="viewcone_max_viewcones" value="20" type="int" />
 	    <param name="viewcone_occupancy_threshold" value="5" type="int" />
