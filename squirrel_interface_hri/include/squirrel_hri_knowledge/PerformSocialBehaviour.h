@@ -11,6 +11,7 @@
 #include "actionlib/client/simple_action_client.h"
 #include "move_base_msgs/MoveBaseAction.h"
 #include <geometry_msgs/Pose2D.h>
+#include <std_msgs/Float32.h>
 
 #ifndef SQUIRREL_INTERFACE_HRI_PERFORM_SOCIAL_BEHAVIOUR_H
 #define SQUIRREL_INTERFACE_HRI_PERFORM_SOCIAL_BEHAVIOUR_H
@@ -42,12 +43,17 @@ namespace KCL_rosplan {
 		ros::Publisher head_nod_pub;
 		
 		ros::Publisher lights_pub_;
+		ros::Publisher lights_complex_pub_; // 3 * 42
 		ros::Publisher expression_pub_;
+
+		ros::Subscriber arousal_sub_;
 		
 		float arousal_threshold;
+		float current_arousal;
 		
 		// Movebase action lib.
 		actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> action_client;
+		void getArousal(const std_msgs::Float32::ConstPtr& msg);
 
 	public:
 

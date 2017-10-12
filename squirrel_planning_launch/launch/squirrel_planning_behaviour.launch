@@ -4,7 +4,7 @@
 	* "true" = simulated
 	* "false" = on real robot
 	-->
-	<arg name="simulated" value="true" />
+	<arg name="simulated" value="false" />
 
 	<!-- domain file -->
 	<param name="data_path" value="$(find squirrel_planning_launch)/common/" />
@@ -56,7 +56,9 @@
 
 	<!-- SQUIRREL interfaces -->
 	<node name="squirrel_object_server" pkg="squirrel_interface_perception" type="rpObjectPerception" respawn="false" output="screen"></node>
-	<node name="squirrel_social_behaviour" pkg="squirrel_interface_hri" type="PerformSocialBehaviour" respawn="false" output="screen"></node>
+	<node name="squirrel_social_behaviour" pkg="squirrel_interface_hri" type="PerformSocialBehaviour" respawn="false" output="screen">
+		<param name="arousal_threshold" value="-0.8" />
+	</node>
 
 	<node name="squirrel_interface_perception" pkg="squirrel_interface_perception" type="rpperceptionServer" respawn="false" output="screen">
 		<!-- set "true" if you want to fake object perception completely -->
@@ -79,6 +81,19 @@
 
 	<!-- simulation acitons (ALL TRUE) -->
 	<node name="simulated_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen" if="$(arg simulated)">
+		<param name="query_user" value="false" />
+		<param name="simulate_goto_waypoint" value="true"/>
+		<param name="simulate_explore_waypoint" value="true"/>
+		<param name="simulate_clear_object" value="true"/>
+		<param name="simulate_classify_object" value="true"/>
+		<param name="simulate_put_object_in_box" value="true"/>
+		<param name="simulate_pickup_object" value="true"/>
+		<param name="simulate_drop_object" value="true"/>
+		<param name="simulate_child_give_object_to_robot" value="true"/>
+		<param name="simulate_child_pickup" value="true"/>
+	</node>
+
+	<node name="simulated_some_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen" unless="$(arg simulated)">
 		<param name="query_user" value="false" />
 		<param name="simulate_goto_waypoint" value="true"/>
 		<param name="simulate_explore_waypoint" value="true"/>
