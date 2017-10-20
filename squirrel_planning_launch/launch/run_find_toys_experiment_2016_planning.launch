@@ -34,7 +34,8 @@
             <param name="viewcone_bounding_box_p3" value="5.03,-2.36,0.0" />
 	    -->
 	    <!-- view cone parameters -->
-	    <param name="viewcone_max_viewcones" value="20" type="int" />
+	    <param name="viewcone_max_viewcones" value="200" type="int" />
+	    <param name="viewcone_coverage" value="0.9" type="double" />
 	    <param name="viewcone_occupancy_threshold" value="5" type="int" />
 	    <param name="viewcone_field_of_view" value="0.959595959595" type="double" />
 	    <param name="viewcone_view_distance" value="2.0" type="double" />

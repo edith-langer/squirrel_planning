@@ -992,8 +992,10 @@ namespace KCL_rosplan {
 			float view_distance = 3.0f;
 			int sample_size = 1000;
 			float safe_distance = 1.0f;
+			float coverage;
 			
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_max_viewcones", max_viewcones);
+			node_handle->getParam("/squirrel_interface_recursion/viewcone_coverage", coverage);
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_occupancy_threshold", occupancy_threshold);
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_field_of_view", fov);
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_view_distance", view_distance);
@@ -1002,13 +1004,14 @@ namespace KCL_rosplan {
 			
 			ROS_INFO("KCL: (RPSquirrelRecursion) Generate view cones:");
 			ROS_INFO("KCL: (RPSquirrelRecursion) Max view cones: %d", max_viewcones);
+			ROS_INFO("KCL: (RPSquirrelRecursion) Coverage: %d",coverage);
 			ROS_INFO("KCL: (RPSquirrelRecursion) Occupancy threshold: %d", occupancy_threshold);
 			ROS_INFO("KCL: (RPSquirrelRecursion) Field of View (in Radians): %f", fov);
 			ROS_INFO("KCL: (RPSquirrelRecursion) View distance: %f", view_distance);
 			ROS_INFO("KCL: (RPSquirrelRecursion) Sample size: %d", sample_size);
 			ROS_INFO("KCL: (RPSquirrelRecursion) Safe distance: %f", safe_distance);
 			
-			view_cone_generator->createViewCones(view_poses, bounding_box->getBoundingBox(), max_viewcones, occupancy_threshold, fov, view_distance, sample_size, safe_distance);
+			view_cone_generator->createViewCones(view_poses, bounding_box->getBoundingBox(), max_viewcones, occupancy_threshold, fov, view_distance, sample_size, safe_distance, coverage);
 			
 			// Add these poses to the knowledge base.
 			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;

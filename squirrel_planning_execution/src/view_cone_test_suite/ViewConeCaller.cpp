@@ -11,7 +11,7 @@
 int main(int argc, char **argv) {
 
 	if (argc < 7) {
-		std::cout << "Usage: ./view_cone_test {occupancy_threshold} {nr_view_cones} {view_distance} {fov} {sample_size} {safe_distance}." << std::endl;
+		std::cout << "Usage: ./view_cone_test {occupancy_threshold} {nr_view_cones} {view_distance} {fov} {sample_size} {safe_distance} {coverage}." << std::endl;
 		exit(0);
 	}
 	
@@ -32,6 +32,7 @@ int main(int argc, char **argv) {
 	float fov = ::atof(argv[4]);               //70.0f * M_PI / 180.0f;
 	unsigned int sample_size = ::atoi(argv[5]); //1000;
 	float safe_distance = ::atof(argv[6]);      //0.5f;
+	float coverage = ::atof(argv[7]);	   //0.95;
 	
 	ros::init(argc, argv, "rosplan_interface_view_cone_test_suite_ViewConeCaller");
 	ros::NodeHandle nh;
@@ -53,7 +54,7 @@ int main(int argc, char **argv) {
 	unsigned int sample_size = 1000;
 	float safe_distance = 0.5f;
 	*/
-	vg.createViewCones(poses, bounding_box, nr_view_cones, occupancy_threshold, fov, view_distance, sample_size, safe_distance);
+	vg.createViewCones(poses, bounding_box, nr_view_cones, occupancy_threshold, fov, view_distance, sample_size, safe_distance, coverage);
 
 	ROS_INFO("Got the view cones, there are %d!", poses.size());
 

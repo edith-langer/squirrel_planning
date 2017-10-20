@@ -40,8 +40,9 @@ namespace KCL_rosplan {
 		 * @param view_distance The maximum viewing distance (straight in front).
 		 * @param sample_size How many view cones should be generated at each iteration.
 		 * @param safe_distance Waypoints cannot be generated @ref{safe_distance} away from any obstacles in the occupancy grid.
+		 * @param coverage How much of the room should be covered. The accepted range is [0,1].
 		 */
-		void createViewCones(std::vector<geometry_msgs::Pose>& poses, const std::vector<tf::Vector3>& bounding_box, unsigned int max_view_cones, int occupancy_threshold, float fov, float view_distance, unsigned int sample_size, float safe_distance);
+		void createViewCones(std::vector<geometry_msgs::Pose>& poses, const std::vector<tf::Vector3>& bounding_box, unsigned int max_view_cones, int occupancy_threshold, float fov, float view_distance, unsigned int sample_size, float safe_distance, float coverage);
 		
 		/**
 		 * @return True if a occupancy grid has been received and the instance is ready to do work, false otherwise.

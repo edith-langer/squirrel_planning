@@ -26,7 +26,7 @@ void ViewConeGenerator::storeNavigationGrid(const nav_msgs::OccupancyGrid::Const
 	has_received_occupancy_grid_ = true;
 }
 
-void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses, const std::vector<tf::Vector3>& bounding_box, unsigned int max_view_cones, int occupancy_threshold, float fov, float view_distance, unsigned int sample_size, float safe_distance)
+void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses, const std::vector<tf::Vector3>& bounding_box, unsigned int max_view_cones, int occupancy_threshold, float fov, float view_distance, unsigned int sample_size, float safe_distance, float coverage)
 {
 	if (!has_received_occupancy_grid_) {
 		ROS_WARN("(ViewConeGenerator) The occupancy grid was not published yet, no poses returned.");
@@ -35,6 +35,7 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 	
 	ROS_INFO("(ViewConeGenerator) View code generation started %d. Occupancy grid size: (%d, %d), cell size: %f", max_view_cones, last_received_occupancy_grid_msgs_.info.width, last_received_occupancy_grid_msgs_.info.height, last_received_occupancy_grid_msgs_.info.resolution);
 	// Initialise the processed cells list.
+	int free_space = 0;
 	std::vector<bool> processed_cells(last_received_occupancy_grid_msgs_.info.width * last_received_occupancy_grid_msgs_.info.height, false);
 	for (int y = 0; y < last_received_occupancy_grid_msgs_.info.height; ++y) {
 		for (int x = 0; x < last_received_occupancy_grid_msgs_.info.width; ++x) {
@@ -43,13 +44,17 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 				processed_cells[x + y * last_received_occupancy_grid_msgs_.info.width] = true;
 			} else {
 				processed_cells[x + y * last_received_occupancy_grid_msgs_.info.width] = false;
+				free_space++;
 			}
 		}
 	}
+	ROS_INFO("Free cells: %d", free_space);
 	
 	ROS_INFO("(ViewConeGenerator) Initialised the processed cells.");
-	
-	for (unsigned int i = 0; i < max_view_cones; ++i) {
+	int i = 0;
+	float currently_covered = 0.0;
+	while (i < max_view_cones && currently_covered < coverage) {	
+//	for (unsigned int i = 0; i < max_view_cones; ++i) {
 		ROS_INFO("(ViewConeGenerator) Process view cone: %d.", i);
 		// First we generate a bunch of random view cones and rate them.
 		geometry_msgs::Pose best_pose;
@@ -268,16 +273,35 @@ void ViewConeGenerator::createViewCones(std::vector<geometry_msgs::Pose>& poses,
 		}
 		
 		// Update the state of which cells have been observed.
+		int countNewCells = 0;
 		for (std::vector<occupancy_grid_utils::Cell>::const_iterator ci = best_visible_cells.begin(); ci != best_visible_cells.end(); ++ci) {
 			const occupancy_grid_utils::Cell& cell = *ci;
+			if (processed_cells[cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width] == false) {
+				countNewCells++;
+			}
 			processed_cells[cell.x + cell.y * last_received_occupancy_grid_msgs_.info.width] = true;
+		}
+		if (last_received_occupancy_grid_msgs_.info.resolution * countNewCells < 0.05 + 0.000001) {
+			ROS_INFO("(ViewConeGenerator) Skip view cone because it covers only %d new cells", countNewCells);
+			continue;
 		}
 		
 		tf::Quaternion q(best_pose.orientation.x, best_pose.orientation.y, best_pose.orientation.z, best_pose.orientation.w);
 		float yaw = tf::getYaw(q);
 		
-		ROS_INFO("(ViewConeGenerator) Add the pose(%f, %f, %f), yaw=%f with %d cells to the return list.", best_pose.position.x, best_pose.position.y, best_pose.position.z, yaw, best_visible_cells.size());
+		ROS_INFO("(ViewConeGenerator) Add the pose(%f, %f, %f), yaw=%f with %zu cells to the return list.", best_pose.position.x, best_pose.position.y, best_pose.position.z, yaw, best_visible_cells.size());
 		poses.push_back(best_pose);
+
+		int count_free_cells = 0;
+		for (int j = 0; j < processed_cells.size(); j++) {
+			if (processed_cells[j] == false) {
+				count_free_cells++;			
+			}
+		}
+		//covered space
+		currently_covered = 1-(float)count_free_cells/(float)free_space;
+		ROS_INFO("Currently covered: %f", currently_covered);
+		i++;
 	}
 	
 	for (std::vector<geometry_msgs::Pose>::const_iterator ci = poses.begin(); ci != poses.end(); ++ci) {
