@@ -1,0 +1,145 @@
+<?xml version="1.0"?>
+<launch>
+	<!-- Whether this is simulated or executed on the real robot. 
+	* "true" = simulated
+	* "false" = on real robot
+	-->
+	<arg name="simulated" value="false" />
+
+	<!-- domain file -->
+	<param name="data_path" value="$(find squirrel_planning_launch)/common/" />
+	<param name="planner_path" value="$(find rosplan_planning_system)/common/bin/" />
+	<param name="planner_command" value="timeout 1800 $(find rosplan_planning_system)/common/bin/popf3-clp-last DOMAIN PROBLEM" />
+	<param name="/rosplan/data_path" value="$(find squirrel_planning_launch)/common/" />
+	<param name="/scenario_setup_file" value="$(find squirrel_planning_execution)/conf/year4-behaviour-vienna.conf" />
+
+	<!-- domain file -->
+	<param name="/rosplan/domain_path" value="$(find squirrel_planning_launch)/common/strategic-behaviour-domain.pddl" />
+
+
+	<!-- knowledge base -->
+	<node name="rosplan_knowledge_base" pkg="rosplan_knowledge_base" type="knowledgeBase" respawn="false" output="screen">
+	</node>
+
+	<!-- scene database (MongoDB) -->
+	<node name="rosplan_scene_database" pkg="mongodb_store" type="mongodb_server.py" respawn="false" output="log">
+	    <param name="database_path" value="$(find rosplan_knowledge_base)/common/mongoDB" />
+	</node>
+	<node name="rosplan_scene_message_store" pkg="mongodb_store" type="message_store_node.py" respawn="false" output="log">
+	</node>
+
+	<!-- planning system 
+	<node name="rosplan_planning_system" pkg="rosplan_planning_system" type="planner" respawn="false" output="screen">
+	    <param name="data_path" value="$(find squirrel_planning_launch)/common/" />
+	    <param name="problem_path" value="$(find squirrel_planning_launch)/common/problem.pddl" />
+            <param name="strl_file_path" value="$(find squirrel_planning_launch)/common/plan.strl" />
+	    <param name="planner_command" value="timeout 1800 $(find rosplan_planning_system)/common/bin/popf3-clp-last DOMAIN PROBLEM" />
+            <param name="generate_default_problem" value="true" />
+	</node-->
+
+	<!-- standard ROS interfaces -->
+<!--
+	<node name="rosplan_interface_movebase" pkg="rosplan_interface_movebase" type="rpmovebase" respawn="false" output="screen" unless="$(arg simulated)">
+		<param name="action_server" value="/move_base" />
+		<param name="pddl_action_name" value="goto_waypoint" />
+	</node>
+
+	<node name="rosplan_interface_mapping" pkg="rosplan_interface_mapping" type="rproadmapServer" respawn="false" output="screen">
+	    <param name="data_path" value="$(find squirrel_planning_launch)/common/" />
+	    <param name="cost_map_topic" value="/move_base/global_costmap/costmap" />
+	    <param name="cost_map_update_topic" value="/move_base/global_costmap/costmap_updates" />
+	    <param name="odom_topic" value="/odom" />
+	    <param name="use_static_map" value="false" />
+	    <param name="static_map_service" value="/static_map" />
+	</node>
+	<node name="squirrel_pointer" pkg="squirrel_person_tracker" type="squirrel_person_tracker" respawn="false" output="screen"></node>
+-->
+
+	<!-- SQUIRREL interfaces -->
+	<!--node name="squirrel_object_server" pkg="squirrel_interface_perception" type="rpObjectPerception" respawn="false" output="screen"></node-->
+	<node name="squirrel_social_behaviour" pkg="squirrel_interface_hri" type="PerformSocialBehaviour" respawn="false" output="screen">
+		<param name="arousal_threshold" value="0.25" />
+	</node>
+
+	<node name="squirrel_interface_camera" pkg="squirrel_interface_perception" type="rpCameraControl" respawn="false" output="screen">
+		<!-- set "true" if you want to fake object perception completely -->
+		<param name="camera_control_topic" value="/neck_tilt_controller/command" />
+		<param name="default_camera_angle" value="0.5" />
+	</node>
+
+	<node name="squirrel_interface_manipulation" pkg="squirrel_interface_manipulation" type="rppushServer" respawn="false" output="screen">
+		<!-- set "true" if you want to simply move instead of pushing -->
+		<param name="simulate_pushing" type="bool" value="false" />
+		<param name="push_action_server" value="/push" />
+		<param name="smash_action_server" value="/smash" />
+	</node>
+
+	<!-- simulation acitons (ALL TRUE) -->
+	<node name="simulated_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen" if="$(arg simulated)">
+		<param name="query_user" value="false" />
+		<param name="simulate_goto_waypoint" value="true"/>
+		<param name="simulate_explore_waypoint" value="true"/>
+		<param name="simulate_clear_object" value="true"/>
+		<param name="simulate_classify_object" value="true"/>
+		<param name="simulate_put_object_in_box" value="true"/>
+		<param name="simulate_pickup_object" value="true"/>
+		<param name="simulate_drop_object" value="true"/>
+		<param name="simulate_child_give_object_to_robot" value="true"/>
+		<param name="simulate_child_pickup" value="true"/>
+	</node>
+
+	<node name="simulated_some_actions" pkg="squirrel_planning_execution" type="simulatedPDDLActionsNode" output="screen" unless="$(arg simulated)">
+		<param name="query_user" value="false" />
+		<param name="simulate_goto_waypoint" value="true"/>
+		<param name="simulate_explore_waypoint" value="true"/>
+		<param name="simulate_clear_object" value="true"/>
+		<param name="simulate_classify_object" value="true"/>
+		<param name="simulate_put_object_in_box" value="true"/>
+		<param name="simulate_pickup_object" value="true"/>
+		<param name="simulate_drop_object" value="true"/>
+		<param name="simulate_child_give_object_to_robot" value="true"/>
+		<param name="simulate_child_pickup" value="true"/>
+	</node>
+
+
+<!--
+	<node name="squirrel_interface_mapping" pkg="squirrel_planning_execution" type="rpsquirrelRoadmap" respawn="false" output="screen">
+	    <param name="data_path" value="$(find squirrel_planning_launch)/common/" />
+	    <param name="cost_map_topic" value="/move_base/global_costmap/costmap" />
+	    <param name="cost_map_update_topic" value="/move_base/global_costmap/costmap_updates" />
+	    <param name="use_static_map" value="false" type="bool" />
+	    <param name="static_map_service" value="/static_map" />
+	    <param name="occupancy_threshold" value="20" />
+	    <param name="manipulation_service_topic" value="/squirrel_manipulation/waypoint_request" />
+	</node>
+-->
+<!--
+
+	<arg name="number_of_toys" default="1"/>
+	<arg name="model_file_name" default="/home/bram/.gazebo/models/beer/model.sdf"/>
+	<node name="squirrel_interface_behaviour" pkg="squirrel_planning_execution" type="behaviour" respawn="false" output="screen">
+	    <param name="occupancy_topic" value="/squirrel_nav/occupancy_map" />
+	    <param name="number_of_toys" value="$(arg number_of_toys)" />
+            <param name="stop_when_enough_lumps_found" value="true" type="bool" />
+            <param name="spawn_objects" value="true" type="bool" />
+            <param name="model_file_name" value="$(arg model_file_name)" />
+	    <param name="toy_p0" value="-0.16,-2.82,0.0" />
+	    <param name="toy_p1" value="4.76,-4.02,0.0" />
+	    <param name="toy_p2" value="-0.57,-6.92,0.0" />
+	    <param name="toy_p3" value="3.28,-8.12,0.0" />
+	    <param name="toy_p4" value="2.5,0.2,0.0" />
+	    <param name="toy_p5" value="2.1,-6.47,0.0" />
+	    <param name="toy_p6" value="4.9,0.34,0.0" />
+	    <param name="viewcone_bounding_box_p0" value="-2.0,0.9,0.0" />
+	    <param name="viewcone_bounding_box_p1" value="-2.0,-9.54,0.0" />
+	    <param name="viewcone_bounding_box_p2" value="6.05,-9.54,0.0" />
+	    <param name="viewcone_bounding_box_p3" value="6.05,0.9,0.0" />
+	    <param name="viewcone_max_viewcones" value="20" type="int" />
+	    <param name="viewcone_occupancy_threshold" value="5" type="int" />
+	    <param name="viewcone_field_of_view" value="0.72" type="double" />
+	    <param name="viewcone_view_distance" value="2.0" type="double" />
+	    <param name="viewcone_sample_size" value="1000" type="int" />
+	    <param name="viewcone_safe_distance" value="0.5" type="double" />
+	</node>
+-->
+</launch>
