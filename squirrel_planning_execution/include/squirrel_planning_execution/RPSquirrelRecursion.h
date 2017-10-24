@@ -227,6 +227,8 @@ namespace KCL_rosplan {
 		
 		// Generate the initial state for the highest level of abstraction.
 		void generateInitialState();
+
+        void readConfFile(std::vector<geometry_msgs::Pose> &view_poses, std::string config_file);
 		
 		/**
 		 * Create a PDDL domainfile that is needed to execute @ref{action_name}.

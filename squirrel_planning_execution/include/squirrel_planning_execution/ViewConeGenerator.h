@@ -65,7 +65,7 @@ namespace KCL_rosplan {
 		 * @return The closest distance to a blocked cell, std::numeric_limits<float>::max if none is found.
 		 */
 		float minDistanceToBlocked(const geometry_msgs::Point& point, float max_distance) const;
-	private:
+    //private:
 		
 		/**
 		 * Publish the generated viewcones to RViz.

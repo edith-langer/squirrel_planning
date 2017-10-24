@@ -36,3 +36,6 @@ squirrel_planning_launch/common/observe-classifiable_on_attempt_problem.pddl
 squirrel_planning_launch/common/tidy_area_domain-nt.pddl
 squirrel_planning_launch/common/tidy_area_problem.pddl
 squirrel_planning_launch/common/plan*
+*-Desktop-Default/
+*CMakeLists.txt.user
+*.swo

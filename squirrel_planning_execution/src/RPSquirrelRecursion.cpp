@@ -315,7 +315,7 @@ namespace KCL_rosplan {
 		while (true)
 		{
 			std::stringstream bb_name;
-			bb_name << "/squirrel_interface_recursion/viewcone_bounding_box_p";
+            bb_name << "/squirrel_interface_recursion/viewcone_bounding_box_p";
 			bb_name << bounding_box_param_index;
 			
 			if (!nh.hasParam(bb_name.str()))
@@ -498,7 +498,7 @@ namespace KCL_rosplan {
 		}
 		else
 		{
-			GotoWaypointWrapper::enableCheck(true);
+            GotoWaypointWrapper::enableCheck(false); //changed it to false, in Y4E1 it should never check if a waypoint is covered or not
 		}
 
 		bool actionAchieved = false;
@@ -950,7 +950,69 @@ namespace KCL_rosplan {
 		ROS_INFO("KCL: (TidyRooms) Added (camera_neutral kenny) to the knowledge base.");
 		waypoint_knowledge.values.clear();
 	}
-	
+
+    void tokenise(const std::string& s, std::vector<std::string>& tokens)
+    {
+        size_t current;
+        size_t next = -1;
+
+        do
+        {
+            current = next + 1;
+            next = s.find_first_of(" ", current);
+            tokens.push_back(s.substr(current, next - current));
+        }
+        while (next != std::string::npos);
+    }
+
+    void RPSquirrelRecursion::readConfFile(std::vector<geometry_msgs::Pose>& view_poses, std::string config_file) {
+        ROS_INFO("KCL: (RPSquirrelRecursion) Create examining waypoints from config file");
+
+        std::ifstream f(config_file.c_str());
+        std::string line;
+
+        if (f.is_open())
+        {
+            while (getline(f, line))
+            {
+                //std::cout << line << std::endl;
+                if (line.size() == 0) continue;
+
+                std::vector<std::string> tokens;
+                tokenise(line, tokens);
+
+                // Waypoints.
+                if (line[0] == 'w')
+                {
+                    if (tokens.size() != 2)
+                    {
+                        ROS_ERROR("KCL (RPSquirrelRecursion) Malformed line, expected w (f,f,f). Read %s\n", line.c_str());
+                        exit(0);
+                    }
+
+                    std::string waypoint_str = tokens[1];
+                    std::cout << "Tranform to pose: " << waypoint_str << std::endl;
+                    geometry_msgs::Pose p;
+                    int first_break = waypoint_str.find(',');
+                    int second_break = waypoint_str.find(',', first_break + 1);
+
+                    p.position.x = ::atof(waypoint_str.substr(1, first_break - 1).c_str());
+                    p.position.y = ::atof(waypoint_str.substr(first_break + 1, second_break - (first_break + 1)).c_str());
+                    p.position.z = 0;
+                    double yaw = ::atof(waypoint_str.substr(second_break + 1, waypoint_str.size() - (second_break + 2)).c_str());
+                    tf::Quaternion q = tf::createQuaternionFromRPY(0.0, 0.0, yaw);
+                    geometry_msgs::Quaternion rotation;
+                    tf::quaternionTFToMsg(q, rotation);
+                    p.orientation = rotation;
+
+                    view_poses.push_back(p);
+                }
+            }
+
+        }
+        f.close();
+    }
+
 	bool RPSquirrelRecursion::createDomain(const std::string& action_name)
 	{
 		ROS_INFO("KCL: (RPSquirrelRecursion) Create domain for action %s.", action_name.c_str());
@@ -993,33 +1055,42 @@ namespace KCL_rosplan {
 			int sample_size = 1000;
 			float safe_distance = 1.0f;
 			float coverage;
-			
-			node_handle->getParam("/squirrel_interface_recursion/viewcone_max_viewcones", max_viewcones);
+            bool use_conf_waypoints = false;
+            std::string waypoint_conf_path = "";
+
+            node_handle->getParam("/squirrel_interface_recursion/use_waypoints_from_conf", use_conf_waypoints);
+            node_handle->getParam("/squirrel_interface_recursion/waypoint_setup_file", waypoint_conf_path);
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_coverage", coverage);
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_occupancy_threshold", occupancy_threshold);
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_field_of_view", fov);
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_view_distance", view_distance);
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_sample_size", sample_size);
 			node_handle->getParam("/squirrel_interface_recursion/viewcone_safe_distance", safe_distance);
-			
+
 			ROS_INFO("KCL: (RPSquirrelRecursion) Generate view cones:");
 			ROS_INFO("KCL: (RPSquirrelRecursion) Max view cones: %d", max_viewcones);
-			ROS_INFO("KCL: (RPSquirrelRecursion) Coverage: %d",coverage);
+            ROS_INFO("KCL: (RPSquirrelRecursion) Coverage: %f",coverage);
 			ROS_INFO("KCL: (RPSquirrelRecursion) Occupancy threshold: %d", occupancy_threshold);
 			ROS_INFO("KCL: (RPSquirrelRecursion) Field of View (in Radians): %f", fov);
 			ROS_INFO("KCL: (RPSquirrelRecursion) View distance: %f", view_distance);
 			ROS_INFO("KCL: (RPSquirrelRecursion) Sample size: %d", sample_size);
 			ROS_INFO("KCL: (RPSquirrelRecursion) Safe distance: %f", safe_distance);
 			
-			view_cone_generator->createViewCones(view_poses, bounding_box->getBoundingBox(), max_viewcones, occupancy_threshold, fov, view_distance, sample_size, safe_distance, coverage);
-			
+            if (!use_conf_waypoints) {
+                view_cone_generator->createViewCones(view_poses, bounding_box->getBoundingBox(), max_viewcones, occupancy_threshold, fov, view_distance, sample_size, safe_distance, coverage);
+            } else {
+                readConfFile(view_poses, waypoint_conf_path);
+                view_cone_generator->visualiseViewCones(view_poses, view_distance, fov);
+            }
 			// Add these poses to the knowledge base.
 			rosplan_knowledge_msgs::KnowledgeUpdateService add_waypoints_service;
 			add_waypoints_service.request.update_type = rosplan_knowledge_msgs::KnowledgeUpdateService::Request::ADD_KNOWLEDGE;
 			
 			std::stringstream ss;
 			for (std::vector<geometry_msgs::Pose>::const_iterator ci = view_poses.begin(); ci != view_poses.end(); ++ci) {
-				
+                tf::Quaternion q;
+                tf::quaternionMsgToTF((*ci).orientation, q);
+                ROS_INFO("Waypoint: (%f, %f, %f)", (*ci).position.x, (*ci).position.x, tf::getYaw(q));
 				ss.str(std::string());
 				ss << "explore_wp" << waypoint_number;
 				rosplan_knowledge_msgs::KnowledgeItem waypoint_knowledge;
