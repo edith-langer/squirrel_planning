@@ -5,6 +5,7 @@
 
 	<!-- domain file -->
 	<param name="/rosplan/domain_path" value="$(find squirrel_planning_launch)/common/tidy_room_domain-nt.pddl" />
+	<param name="/rosplan/strl_file_path" value="$(find squirrel_planning_launch)/common/plan.strl" />
 
 
 	<!-- knowledge base -->
