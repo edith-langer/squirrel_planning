@@ -575,7 +575,7 @@ namespace KCL_rosplan {
 				std::cout << " ================== ENOUGH LUMPS FOUND! ==================" << std::endl;
 				std::cout << "Found enough lumps, move to segmenting them." << std::endl;
 				planner_instance.stopPlanner();
-				break;
+				exit(0);
 			}
 		}
 
